@@ -110,7 +110,7 @@ for i in range(len(mask_filenames)):
                     train_y.append(0)  
             # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
             elif mask_label == 0:
-                if img[i][j] == 255:
+                if img[j][k] == 255:
                     train_x.append([j, k])
                     train_y.append(1) 
             else:
