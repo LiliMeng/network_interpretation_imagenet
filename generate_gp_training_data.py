@@ -25,6 +25,8 @@ from skimage.segmentation import felzenszwalb, slic, quickshift, watershed
 from skimage.segmentation import mark_boundaries
 from skimage.util import img_as_float
 
+from utils import normalize_image
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -293,8 +295,9 @@ def validate(val_loader, model, criterion):
             correct_pred_count = 0
             wrong_pred_count = 0
             for i in range(1000): 
-                num_conse_superpixels = 5
+                
                 total_num_segments = len(np.unique(segments))
+                num_conse_superpixels = int(0.6*total_num_segments)
                 print("total_num_segments: ", total_num_segments)
                 firstIndex= randint(1, total_num_segments-num_conse_superpixels)
                
@@ -408,47 +411,47 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-def normalize_image(image):
-    """Convert pixel intensity values from [0, 255] to [0.0, 1.0]."""
-    return np.multiply(image.astype(np.float32), 1.0 / 255.0)
 
 
-global args
-args = parser.parse_args()
+def evaluate_superpixels():
+    global args
+    args = parser.parse_args()
 
-args.distributed = args.world_size > 1
-args.batch_size=1
+    args.distributed = args.world_size > 1
+    args.batch_size=1
 
-if args.distributed:
-    dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                            world_size=args.world_size)
+    if args.distributed:
+        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                world_size=args.world_size)
 
-cudnn.benchmark = True
+    cudnn.benchmark = True
 
-# create model
-print("=> using pre-trained model '{}'".format(args.arch))
-model = models.__dict__[args.arch](pretrained=True)
+    # create model
+    print("=> using pre-trained model '{}'".format(args.arch))
+    model = models.__dict__[args.arch](pretrained=True)
 
-valdir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
-#valdir = os.path.join(args.data, 'val')
+    valdir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+    #valdir = os.path.join(args.data, 'val')
 
-normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
 
-val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+    val_loader = torch.utils.data.DataLoader(
+            datasets.ImageFolder(valdir, transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
 
-model.cuda()
+    model.cuda()
 
 
-# define loss function (criterion) and optimizer
-criterion = nn.CrossEntropyLoss().cuda()
-validate(val_loader, model, criterion)
+    # define loss function (criterion) and optimizer
+    criterion = nn.CrossEntropyLoss().cuda()
+    validate(val_loader, model, criterion)
  
+
+evaluate_superpixels()
