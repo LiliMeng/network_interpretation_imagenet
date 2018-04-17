@@ -56,4 +56,8 @@ optional arguments:
   -e, --evaluate        evaluate model on validation set
   --pretrained          use pre-trained model
 ```
-# network_interpretation_imagenet
+### network_interpretation_imagenet
+
+```bash
+python generate_gp_training_data.py -a resnet101 ./data/
+```
