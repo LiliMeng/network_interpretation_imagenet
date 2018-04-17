@@ -21,6 +21,16 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 from utils import normalize_image
 
+dataset = 'MNIST'
+
+if dataset == 'MNIST':
+    n = 28
+elif dataset == 'CIFAR':
+    n = 32
+elif dataset == 'IMAGENET':
+    n = 224
+else:
+    raise Exception("This dataset Not implemented yet")
 
 # Training data
 def load_images_from_folder(folder):
@@ -36,8 +46,6 @@ def load_images_from_folder(folder):
 
 mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
-n = 224
-
 train_x = []
 train_y = []
 pixel_mask_counts = []
@@ -49,8 +57,9 @@ for i in range(len(mask_filenames)):
     print("has read ", i)
     for j in range(n):
         for k in range(n):
+            print("pixel_position ", (j, k))
             pixel_position = (j, k)
-            if img[j][k] == 0:
+            if img[j][k] == 255:
                 if pixel_position in dict_pixel:
                     dict_pixel[pixel_position] += mask_label
                 else:
@@ -233,7 +242,9 @@ cv2.imwrite('./weighted_mask/pred_mask_heatmap.png', test_heatmap)
 
 
 
-org_img = cv2.imread('original_img_index5_label_6.png')
+org_img = cv2.imread('original_img_index2_label_9.png')
+print("org_img.shape")
+print(org_img.shape)
 
 
 # final_masked_img = org_img * org_test_gray_img 
