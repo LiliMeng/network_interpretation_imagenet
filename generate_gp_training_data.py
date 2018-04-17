@@ -248,7 +248,7 @@ def validate(val_loader, model, criterion):
     for i, (input, target) in enumerate(val_loader):
         count += 1
 
-        if count >10:
+        if count >2:
             break
         
         if count == 2:

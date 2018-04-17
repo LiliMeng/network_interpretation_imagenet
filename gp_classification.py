@@ -101,17 +101,17 @@ cv2.destroyAllWindows()
 for i in range(len(mask_filenames)):
     img = cv2.imread(mask_filenames[i] ,0)
     mask_label = int(train_mask_labels[i])
-    for i in range(n):
-        for j in range(n):
+    for j in range(n):
+        for k in range(n):
             # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
             if mask_label == 1:
-                if img[i][j] == 0:
-                    train_x.append([i, j])
+                if img[j][k] == 255:
+                    train_x.append([j, k])
                     train_y.append(0)  
             # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
             elif mask_label == 0:
-                if img[i][j] == 0:
-                    train_x.append([i, j])
+                if img[i][j] == 255:
+                    train_x.append([j, k])
                     train_y.append(1) 
             else:
                 raise Exception("No such labels")
