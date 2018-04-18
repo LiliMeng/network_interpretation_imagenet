@@ -1344,7 +1344,7 @@ def validate(val_loader, model, criterion):
                 plt.subplot(141),plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
                 plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
                 plt.subplot(143),plt.imshow(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
-                plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img.transpose(1,2,0), cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask')
+                plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img.transpose(1,2,0), cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
                 plt.show()
                 plt.close()
         #     # measure accuracy and record loss
