@@ -70,6 +70,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
 
 best_prec1 = 0
+np.set_printoptions(threshold=np.nan)
 
 
 classes_dict = {0: 'tench, Tinca tinca',
@@ -1257,25 +1258,28 @@ def validate(val_loader, model, criterion):
             input_var = torch.autograd.Variable(input, volatile=True).cuda()
             target_var = torch.autograd.Variable(target, volatile=True).cuda()
 
-            org_img = input_var[0]
-            org_img = org_img.type(torch.FloatTensor).data
-            org_img = org_img.numpy()
-            img = org_img.transpose( 1, 2, 0 )
-            img -= img.min()
-            img /= img.max()
-            img *= 255
-            img = img.astype(np.uint8)
+            
+            img_show = input[0].numpy().copy()
+            img_show = img_show.transpose( 1, 2, 0 )
+            img_show -= img_show.min()
+            img_show /= img_show.max()
+            img_show *= 255
+            img_show = img_show.astype(np.uint8)
+           
+            cv2.imwrite('original_img_index{}_label_{}.png'.format(count, target[0]), img_show)
+
 
             # cv2.imshow('org_img', img)
+
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()
 
-            segments = felzenszwalb(img_as_float(img), scale=100, sigma=0.5, min_size=50)
+            segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
             
             print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
             
 
-            cv2.imshow('superpixels', mark_boundaries(img_as_float(img), segments))
+            cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
@@ -1295,31 +1299,39 @@ def validate(val_loader, model, criterion):
 
             correct_pred_count = 0
             wrong_pred_count = 0
+
+            print("input0.numpy &&&&&&&&&&&&&")
+            print(input[0].numpy())
+
             for i in range(10): 
                 
                 total_num_segments = len(np.unique(segments))
-                num_conse_superpixels = int(0.6*total_num_segments)
+                num_conse_superpixels = int(0.4*total_num_segments)
                 print("total_num_segments: ", total_num_segments)
+                print("num_conse_superpixels: ", num_conse_superpixels)
                 firstIndex= randint(1, total_num_segments-num_conse_superpixels)
                
 
                 random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
-                #random_sampled_list= random.sample(range(np.unique(segments)[0], np.unique(segments)[-1]), 5)
+                #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
                
                 print("random_sampled_list: ", random_sampled_list)
-                mask = np.zeros(img.shape[:2], dtype= "uint8")
+                mask = np.zeros(img_show.shape[:2], dtype= "uint8")
                 #mask.fill(255)
                 for (j, segVal) in enumerate(random_sampled_list):
-                    mask[segments == segVal] = 255
+                    mask[segments == segVal] = 1
                     
+                print("mask")
+                print(mask)
+                print("input[0]")
+                print(input[0])
+                print("input[0].numpy()")
+                print(input[0].numpy())
 
-                masked_img_org = org_img * mask
+                masked_img = input[0].numpy().copy() * mask
+                print("masked_img")
+                print(masked_img)
                 
-                masked_img_org -= masked_img_org.min()
-                masked_img_org /= masked_img_org.max()
-                masked_img_org *= 255
-                masked_img = normalize_image(masked_img_org)
-
                 masked_img_batch = masked_img[None, :, :, :]
 
             
@@ -1328,23 +1340,30 @@ def validate(val_loader, model, criterion):
                 
                 pred_mask = mask_output.data.max(1, keepdim=True)[1]
                
+                masked_img_show = masked_img.copy()
+                masked_img_show = masked_img_show.transpose(1, 2, 0)
+                masked_img_show -= masked_img_show.min()
+                masked_img_show /= masked_img_show.max()
+                masked_img_show *= 255
+                masked_img_show = masked_img_show.astype(np.uint8)
 
+        
 
                 if pred_mask[0].cpu().numpy()[0] == target[0]:
                     correct_pred_count+=1
                     print("correct_pred_count: ", correct_pred_count)
-                    cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 1), mask)
-                    cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_org.transpose(1, 2, 0))
+                    cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 1), mask*255)
+                    cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
                 else:
                     wrong_pred_count+=1
                     print("wrong_pred_count: ", wrong_pred_count)
-                    cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask)
-                    cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_org.transpose(1, 2, 0))
+                    cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask*255)
+                    cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
 
-                plt.subplot(141),plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
-                plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
-                plt.subplot(143),plt.imshow(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
-                plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img.transpose(1,2,0), cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
+                plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
+                plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
+                plt.subplot(143),plt.imshow(cv2.cvtColor(mask*255, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
+                plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
                 plt.show()
                 plt.close()
         #     # measure accuracy and record loss

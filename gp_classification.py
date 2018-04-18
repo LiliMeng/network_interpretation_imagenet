@@ -95,12 +95,12 @@ result_gray_img = result_gray_img/ result_gray_img.max()
 result_gray_img *= 255
 
 result_gray_img = np.array(result_gray_img, dtype = np.uint8)
-result_heatmap = cv2.applyColorMap(result_gray_img, cv2.COLORMAP_JET)
+#result_heatmap = cv2.applyColorMap(result_gray_img, cv2.COLORMAP_JET)
 
-cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
-cv2.imshow("result_heatmap", result_heatmap)
-cv2.waitKey()
-cv2.destroyAllWindows()
+# # cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
+# # cv2.imshow("result_heatmap", result_heatmap)
+# # cv2.waitKey()
+# # cv2.destroyAllWindows()
 
 # for i in range(len(mask_filenames)):
 #     img = cv2.imread(mask_filenames[i] ,0)
@@ -171,7 +171,7 @@ cv2.destroyAllWindows()
 # mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
 # def train():
-#     num_training_iterations = 100
+#     num_training_iterations = 2
 #     for i in range(num_training_iterations):
 #         # zero back propped gradients
 #         optimizer.zero_grad()
@@ -194,7 +194,7 @@ cv2.destroyAllWindows()
 
 # # Initialize figiure an axis
 # f, observed_ax = plt.subplots(1, 1, figsize=(4, 3))
-# # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
+# # # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
 
 # test_x = []
 # for i in range(n):
@@ -203,7 +203,8 @@ cv2.destroyAllWindows()
       
 
 # test_x = Variable(torch.FloatTensor(np.asarray(test_x))).cuda()
-
+# print("test_x.shape")
+# print(test_x.shape)
         
 # # Make binary predictions by warmping the model output through a Bernoulli likelihood
 # with gpytorch.beta_features.fast_pred_var():
@@ -237,23 +238,29 @@ cv2.destroyAllWindows()
 
 
 
-org_img = cv2.imread('original_img_index17_label_3.png')
+org_img = cv2.imread('original_img_index2_label_0.png')
 print("org_img.shape")
 print(org_img.shape)
 
 
-final_masked_img = org_img.transpose(2,0,1) * org_test_gray_img 
-final_masked_img = final_masked_img.transpose(1,2,0)
-final_masked_img -= final_masked_img.min()
-final_masked_img /= final_masked_img.max()
-final_masked_img *= 255
-final_masked_img = np.array(final_masked_img, dtype = np.uint8)
+# final_masked_img = org_img.transpose(2,0,1) * org_test_gray_img 
+# final_masked_img = final_masked_img.transpose(1,2,0)
+# final_masked_img -= final_masked_img.min()
+# final_masked_img /= final_masked_img.max()
+# final_masked_img *= 255
+# final_masked_img = np.array(final_masked_img, dtype = np.uint8)
+
+
+np.set_printoptions(threshold=np.nan)
+print(result_gray_img[:,:,0])
+plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
 
 
 
-
-plt.subplot(141),plt.imshow(org_img,'gray'),plt.title('Original img')
-plt.subplot(142),plt.imshow(result_heatmap,'gray'),plt.title('Summed label training heatmap')
+plt.subplot(122),plt.imshow(result_gray_img[:,:,0],'gray'),plt.title('Summed label training heatmap')
+plt.colorbar()
+#plt.set_cmap('Reds')
+plt.set_cmap('seismic')
 #plt.subplot(143),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
 #plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
 
