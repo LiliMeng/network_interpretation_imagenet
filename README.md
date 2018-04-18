@@ -59,5 +59,5 @@ optional arguments:
 ### network_interpretation_imagenet
 
 ```bash
-python generate_gp_training_data.py -a resnet101 ./data/
+python generate_gp_training_data_imagenet.py -a resnet101 ./data/
 ```

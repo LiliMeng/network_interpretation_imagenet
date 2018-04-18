@@ -57,7 +57,6 @@ for i in range(len(mask_filenames)):
     print("has read ", i)
     for j in range(n):
         for k in range(n):
-            print("pixel_position ", (j, k))
             pixel_position = (j, k)
             if img[j][k] == 255:
                 if pixel_position in dict_pixel:
@@ -95,10 +94,6 @@ result_gray_img -= result_gray_img.min()
 result_gray_img = result_gray_img/ result_gray_img.max()
 result_gray_img *= 255
 
-cv2.imwrite('./weighted_mask/weighted_mask.png', result_gray_img)
-
-
-cv2.imshow("result_img", result_gray_img)       
 result_gray_img = np.array(result_gray_img, dtype = np.uint8)
 result_heatmap = cv2.applyColorMap(result_gray_img, cv2.COLORMAP_JET)
 
@@ -176,7 +171,7 @@ optimizer = torch.optim.Adam([
 mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
 def train():
-    num_training_iterations = 50
+    num_training_iterations = 100
     for i in range(num_training_iterations):
         # zero back propped gradients
         optimizer.zero_grad()
@@ -242,24 +237,24 @@ cv2.imwrite('./weighted_mask/pred_mask_heatmap.png', test_heatmap)
 
 
 
-org_img = cv2.imread('original_img_index2_label_9.png')
+org_img = cv2.imread('original_img_index17_label_3.png')
 print("org_img.shape")
 print(org_img.shape)
 
 
-# final_masked_img = org_img * org_test_gray_img 
-# #final_masked_img = final_masked_img.transpose(1, 2, 0)
-# final_masked_img -= final_masked_img.min()
-# final_masked_img /= final_masked_img.max()
-# final_masked_img *= 255
-# final_masked_img = np.array(final_masked_img, dtype = np.uint8)
-# final_masked_img_color = cv2.cvtColor(final_masked_img, cv2.COLOR_GRAY2RGB)
+final_masked_img = org_img.transpose(2,0,1) * org_test_gray_img 
+final_masked_img = final_masked_img.transpose(1,2,0)
+final_masked_img -= final_masked_img.min()
+final_masked_img /= final_masked_img.max()
+final_masked_img *= 255
+final_masked_img = np.array(final_masked_img, dtype = np.uint8)
 
 
 
-plt.subplot(131),plt.imshow(org_img,'gray'),plt.title('Original img')
-plt.subplot(132),plt.imshow(result_heatmap,'gray'),plt.title('Summed label training heatmap')
-plt.subplot(133),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
-#plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img_color, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
+
+plt.subplot(141),plt.imshow(org_img,'gray'),plt.title('Original img')
+plt.subplot(142),plt.imshow(result_heatmap,'gray'),plt.title('Summed label training heatmap')
+plt.subplot(143),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
+plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
 
 plt.show()
