@@ -200,7 +200,7 @@ def eval_superpixel():
            
             correct_pred_count=0
             wrong_pred_count =0
-            for i in range(1000):
+            for i in range(10):
                 
                 total_num_segments = len(np.unique(segments))
                 num_conse_superpixels = int(0.6*total_num_segments)
@@ -266,13 +266,13 @@ def eval_superpixel():
                     cv2.imwrite('./mask_on_img/masked_imgs_{}_pred_{}_{}_{}.png'.format(i, pred_mask[0].cpu().numpy()[0], 0, mask_probability_score.cpu().data.numpy()[0]), pic)
 
                
-                # plt.subplot(151),plt.imshow(colored_img, 'gray'),plt.title('original_img_label_{}.png'.format(target[0].cpu().data.numpy()[0]))
-                # plt.subplot(152),plt.imshow(mark_boundaries(img_as_float(colored_img), segments),'gray'),plt.title('Superpixel')
-                # plt.subplot(153),plt.imshow(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
-                # plt.subplot(154),plt.imshow(cv2.cvtColor(colored_pic, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask gray')
-                # plt.subplot(155),plt.imshow(cv2.cvtColor(mask_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask heatmap pred {}'.format(pred_mask[0].cpu().numpy()))
-                # plt.show()
-                # plt.close()
+                plt.subplot(151),plt.imshow(colored_img, 'gray'),plt.title('original_img_label_{}.png'.format(target[0].cpu().data.numpy()[0]))
+                plt.subplot(152),plt.imshow(mark_boundaries(img_as_float(colored_img), segments),'gray'),plt.title('Superpixel')
+                plt.subplot(153),plt.imshow(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
+                plt.subplot(154),plt.imshow(cv2.cvtColor(colored_pic, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask gray')
+                plt.subplot(155),plt.imshow(cv2.cvtColor(mask_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask heatmap pred {}'.format(pred_mask[0].cpu().numpy()))
+                plt.show()
+                plt.close()
         
 if train_nn == True:
   for epoch in range(1, 5):
