@@ -1300,8 +1300,7 @@ def validate(val_loader, model, criterion):
             correct_pred_count = 0
             wrong_pred_count = 0
 
-            print("input0.numpy &&&&&&&&&&&&&")
-            print(input[0].numpy())
+           
 
             for i in range(10): 
                 
@@ -1315,22 +1314,14 @@ def validate(val_loader, model, criterion):
                 random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
                 #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
                
-                print("random_sampled_list: ", random_sampled_list)
+                #print("random_sampled_list: ", random_sampled_list)
                 mask = np.zeros(img_show.shape[:2], dtype= "uint8")
                 #mask.fill(255)
                 for (j, segVal) in enumerate(random_sampled_list):
                     mask[segments == segVal] = 1
                     
-                print("mask")
-                print(mask)
-                print("input[0]")
-                print(input[0])
-                print("input[0].numpy()")
-                print(input[0].numpy())
-
+                
                 masked_img = input[0].numpy().copy() * mask
-                print("masked_img")
-                print(masked_img)
                 
                 masked_img_batch = masked_img[None, :, :, :]
 
@@ -1360,12 +1351,12 @@ def validate(val_loader, model, criterion):
                     cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask*255)
                     cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
 
-                plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
-                plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
-                plt.subplot(143),plt.imshow(cv2.cvtColor(mask*255, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
-                plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
-                plt.show()
-                plt.close()
+                # plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
+                # plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
+                # plt.subplot(143),plt.imshow(, 'gray'), plt.title("Mask")
+                # plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
+                # plt.show()
+                # plt.close()
         #     # measure accuracy and record loss
         #     prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         #     losses.update(loss.data[0], input.size(0))

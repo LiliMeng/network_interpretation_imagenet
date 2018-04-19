@@ -203,7 +203,7 @@ def eval_superpixel():
             for i in range(10):
                 
                 total_num_segments = len(np.unique(segments))
-                num_conse_superpixels = int(0.6*total_num_segments)
+                num_conse_superpixels = int(0.4*total_num_segments)
                
                 print("total_num_segments: ", total_num_segments)
                 print("num_conse_superpixels: ", num_conse_superpixels)
@@ -212,6 +212,7 @@ def eval_superpixel():
 
                 random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
                 
+                print("len(random_sampled_list): ", len(random_sampled_list))
                 mask = np.zeros(img.shape[:2], dtype= "uint8")
                 
                 

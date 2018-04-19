@@ -21,6 +21,16 @@ from gpytorch.random_variables import GaussianRandomVariable
 
 from utils import normalize_image
 
+dataset = 'IMAGENET'
+
+if dataset == 'MNIST':
+    n = 28
+elif dataset == 'CIFAR':
+    n = 32
+elif dataset == 'IMAGENET':
+    n = 224
+else:
+    raise Exception("This dataset Not implemented yet")
 
 # Training data
 def load_images_from_folder(folder):
@@ -36,8 +46,6 @@ def load_images_from_folder(folder):
 
 mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
-n = 32
-
 train_x = []
 train_y = []
 pixel_mask_counts = []
@@ -46,15 +54,16 @@ dict_pixel = {}
 for i in range(len(mask_filenames)):
     img = cv2.imread(mask_filenames[i] ,0)
     mask_label = int(train_mask_labels[i])
-   
-    for i in range(n):
-        for j in range(n):
-            pixel_position = (i, j)
-            if img[i][j] == 0:
+    print('has read ', i)
+    for j in range(n):
+        for k in range(n):
+            pixel_position = (j, k)        
+            if img[j][k] == 255:
                 if pixel_position in dict_pixel:
                     dict_pixel[pixel_position] += mask_label
                 else:
                     dict_pixel[pixel_position]  = mask_label
+
           
      
 print("dict_pixel")
@@ -74,44 +83,54 @@ pixel_x, pixel_y = position_data.T
 label_data = label_data.T
 
 
-result_gray_img = np.zeros((32,32,1), np.int8)
+result_gray_img = np.zeros((n,n))
 for i in range(n):
     for j in range(n):
         pixel_pos = (i,j)
         if pixel_pos in dict_pixel:
             result_gray_img[i][j] = dict_pixel[pixel_pos]
 
+print("result_gray_img")
+print(result_gray_img)
 
-result_gray_img -= result_gray_img.min()
-result_gray_img = result_gray_img/ result_gray_img.max()
-result_gray_img *= 255
+print("result_gray_img")
+print(result_gray_img.max())
 
-cv2.imwrite('./weighted_mask/weighted_mask.png', result_gray_img)
+print("result_gray_img.min()")
+print(result_gray_img.min())
+
+result_gray_img_show = result_gray_img.copy()
+print("result_gray_img_show1")
+print(result_gray_img_show.max())
+print("result_gray_img_show.min()")
+print(result_gray_img.min())
+result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
+result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
+result_gray_img_show *= 255
 
 
-#cv2.imshow("result_img", result_gray_img)       
-result_gray_img = np.array(result_gray_img, dtype = np.uint8)
-result_heatmap = cv2.applyColorMap(result_gray_img, cv2.COLORMAP_JET )
+result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
+result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
 
-cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
-# cv2.imshow("result_heatmap", result_heatmap)
-# cv2.waitKey()
-# cv2.destroyAllWindows()
+# # cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
+cv2.imshow("result_heatmap", result_heatmap)
+cv2.waitKey()
+cv2.destroyAllWindows()
 
 for i in range(len(mask_filenames)):
     img = cv2.imread(mask_filenames[i] ,0)
     mask_label = int(train_mask_labels[i])
-    for i in range(n):
-        for j in range(n):
+    for j in range(n):
+        for k in range(n):
             # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
             if mask_label == 1:
-                if img[i][j] == 0:
-                    train_x.append([i, j])
+                if img[j][k] == 255:
+                    train_x.append([j, k])
                     train_y.append(0)  
             # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
             elif mask_label == 0:
-                if img[i][j] == 0:
-                    train_x.append([i, j])
+                if img[j][k] == 255:
+                    train_x.append([j, k])
                     train_y.append(1) 
             else:
                 raise Exception("No such labels")
@@ -125,6 +144,7 @@ train_y = Variable(torch.FloatTensor(np.asarray(train_y))).cuda()
 print(train_x.shape)
 print(train_y.shape)
 
+
 # We use KISS-GP (kernel interpolation for scalable structured Gaussian Processes)
 # as in https://arxiv.org/pdf/1503.01057.pdf
 class GPRegressionModel(gpytorch.models.ExactGP):
@@ -135,7 +155,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         # GridInterpolationKernel over an ExactGP
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
         self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=30,
-                                                    grid_bounds=[(0, 32), (0, 32)])
+                                                    grid_bounds=[(0, n), (0, n)])
         # Register the log lengthscale as a trainable parametre
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5,6))
         
@@ -164,7 +184,7 @@ optimizer = torch.optim.Adam([
 mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
 def train():
-    training_iterations = 30
+    training_iterations = 2
     for i in range(training_iterations):
         # Zero out gradients from backprop
         optimizer.zero_grad()
@@ -175,6 +195,8 @@ def train():
         loss.backward()
         print('Iter %d/%d - Loss: %.3f' % (i + 1, training_iterations, loss.data[0]))
         optimizer.step()
+
+train()
 
 # Set model and likelihood into evaluation mode
 model.eval()
