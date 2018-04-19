@@ -163,7 +163,7 @@ def train(train_x, train_y):
     torch.save(model.state_dict(), './saved_gp_checkpoints/gp_cls_checkpoint.pth.tar')
 
 
-def eval_superpixels():
+def eval_superpixels(model, likelihood):
 
     # load model
     model.load_state_dict(torch.load('./saved_gp_checkpoints/gp_cls_checkpoint.pth.tar'))
@@ -239,35 +239,38 @@ def eval_superpixels():
 
     plt.show()
 
+def main():
+    # Initialize classification model
+    model = GPClassificationModel().cuda()
 
-# Initialize classification model
-model = GPClassificationModel().cuda()
+    # Likelihood is Bernoulli, warm predictive mean 
+    likelihood = BernoulliLikelihood().cuda()
 
-# Likelihood is Bernoulli, warm predictive mean 
-likelihood = BernoulliLikelihood().cuda()
-
-# Use the adam optimizer
-optimizer = torch.optim.Adam([
-    {'params': model.parameters()},
-    # BernoulliLikelihood has no parameters
-], lr=0.1)
+    # Use the adam optimizer
+    optimizer = torch.optim.Adam([
+        {'params': model.parameters()},
+        # BernoulliLikelihood has no parameters
+    ], lr=0.1)
 
 
+    if mode == 'Train':
+        train_x, train_y = prepare_training_data()
 
-if mode == 'Train':
-    train_x, train_y = prepare_training_data()
+        # Find optimal model hyperparameters
+        model.train()
+        likelihood.train()
 
-    # Find optimal model hyperparameters
-    model.train()
-    likelihood.train()
+        # "Loss" for GPs - the marginal log likelihood
+        # n_data refers to the amount of training data
+        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+        train(train_x, train_y)
 
-    # "Loss" for GPs - the marginal log likelihood
-    # n_data refers to the amount of training data
-    mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
-    train(train_x, train_y)
+    elif mode == 'Eval':
+        print("start to test the model")
+        eval_superpixels(model, likelihood)
+    else:
+        raise Exception("No such mode")
 
-elif mode == 'Eval':
-    print("start to test the model")
-    eval_superpixels()
-else:
-    raise Exception("No such mode")
+
+if __name__== "__main__":
+  main()
