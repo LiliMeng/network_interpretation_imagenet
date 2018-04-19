@@ -24,8 +24,8 @@ np.set_printoptions(threshold=np.nan)
 
 dataset = 'IMAGENET'
 
-#mode = 'Train'
-mode = 'Eval'
+mode = 'Train'
+#mode = 'Eval'
 
 if dataset == 'MNIST':
     n = 28
@@ -101,12 +101,12 @@ def prepare_training_data():
                 if mask_label == 1:
                     if img[j][k] == 255:
                         train_x.append([j, k])
-                        train_y.append(0)  
+                        train_y.append(1)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
                     if img[j][k] == 255:
                         train_x.append([j, k])
-                        train_y.append(1) 
+                        train_y.append(0) 
                 else:
                     raise Exception("No such labels")
 
@@ -143,22 +143,37 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         return latent_pred
 
 
-def train(train_x, train_y):
-    num_training_iterations = 2
+def train(train_x, train_y, model, optimizer, mll):
+    num_training_iterations = 100
     for i in range(num_training_iterations):
         # zero back propped gradients
         optimizer.zero_grad()
-       
-        # Make  prediction
-        output = model(train_x)
-        # Calc loss and use to compute derivatives
-        loss = -mll(output, train_y)
-        loss.backward()
-        print('Iter %d/%d - Loss: %.3f   log_lengthscale: %.3f' % (
-            i + 1, num_training_iterations, loss.data[0],
-            model.covar_module.base_kernel_module.log_lengthscale.data.squeeze()[0],
-        ))
-        optimizer.step()
+        
+        batch_training = True
+
+        if batch_training == True:
+            train_batch_size = 1000
+            full_output = []
+            for i in range(0, train_x.shape[0], train_batch_size):
+                train_indices = range(train_x.shape[0])[i: i+ train_batch_size]
+                train_batch_x = train_x[train_indices]
+                train_batch_y = train_y[train_indices]
+
+                # Make  prediction
+                output_batch = model(train_batch_x)
+
+                # Calc loss and use to compute derivatives
+                loss = -mll(output_batch, train_y)
+                loss.backward()
+                optimizer.step()
+                #train_loss += loss.data[0] * len(data)
+            #print('Train Epoch: %d\tLoss: %.6f' % (epoch, train_loss / train_x.shape[0]))
+
+        # print('Iter %d/%d - Loss: %.3f   log_lengthscale: %.3f' % (
+        #     i + 1, num_training_iterations, loss.data[0],
+        #     model.covar_module.base_kernel_module.log_lengthscale.data.squeeze()[0],
+        # ))
+      
 
     torch.save(model.state_dict(), './saved_gp_checkpoints/gp_cls_checkpoint.pth.tar')
 
@@ -177,38 +192,98 @@ def eval_superpixels(model, likelihood):
     for i in range(n):
         for j in range(n):
             test_x.append([i, j])
+
           
     test_x = Variable(torch.FloatTensor(np.asarray(test_x))).cuda()
     print("test_x.shape")
     print(test_x.shape)
-            
-    # Make binary predictions by warmping the model output through a Bernoulli likelihood
-    with gpytorch.beta_features.fast_pred_var():
-        predictions = likelihood(model(test_x))
 
+    test_batch_size = 896
+    full_predictions = []
+    for i in range(0, test_x.shape[0], test_batch_size):
+        test_indices = range(test_x.shape[0])[i: i+test_batch_size]
+        test_batch_x = test_x[test_indices]
 
-    print("predictions.mean().cpu().data.numpy()")
-    print(predictions.mean().cpu().data.numpy())
-    
-    return predictions
+        print(test_batch_x.shape)
+               
+        # Make binary predictions by warmping the model output through a Bernoulli likelihood
+        with gpytorch.beta_features.fast_pred_var():
+            predictions = likelihood(model(test_batch_x))
+            predictions_np = predictions.mean().cpu().data.numpy()
+            full_predictions.append(predictions_np)
+
+    full_predictions = np.asarray(full_predictions)
+    full_predictions= np.concatenate(full_predictions, axis=0)
+    print(full_predictions.shape)
+
+    return full_predictions
 
 
 def plot_result(predictions):
+
+    mask_filenames, train_mask_labels = load_images_from_folder('./masks')
+
+    train_x = []
+    train_y = []
+    pixel_mask_counts = []
+    dict_pixel = {}
+
+    for i in range(len(mask_filenames)):
+        img = cv2.imread(mask_filenames[i] ,0)
+        mask_label = int(train_mask_labels[i])
+        print('has read ', i)
+        for j in range(n):
+            for k in range(n):
+                pixel_position = (j, k)        
+                if img[j][k] == 255:
+                    if pixel_position in dict_pixel:
+                        dict_pixel[pixel_position] += mask_label
+                    else:
+                        dict_pixel[pixel_position]  = mask_label
+
+    result_gray_img = np.zeros((n,n))
+    for i in range(n):
+        for j in range(n):
+            pixel_pos = (i,j)
+            if pixel_pos in dict_pixel:
+                result_gray_img[i][j] = dict_pixel[pixel_pos]
+
+
+    result_gray_img_show = result_gray_img.copy()
+
+    result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
+    result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
+    result_gray_img_show *= 255
+
+
+    result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
+    result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
+
+    # # cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
+    cv2.imshow("result_heatmap", result_heatmap)
 
     org_test_gray_img = np.zeros((n,n))
 
     for i in range(n):
         for j in range(n):
-            org_test_gray_img[i][j] = predictions.mean().cpu().data.numpy()[i*n+j]
+            org_test_gray_img[i][j] = predictions[i*n+j]
            
-
-    test_gray_img = org_test_gray_img
+    print("org_test_gray_img")
+    print(org_test_gray_img)
+    test_gray_img = org_test_gray_img.copy()
     test_gray_img -= test_gray_img.min()
-    test_gray_img = test_gray_img/ test_gray_img.max()
+    test_gray_img /= test_gray_img.max()
     test_gray_img *= 255
 
     test_gray_img = np.array(test_gray_img, dtype = np.uint8)
+
+    print("test_gray_img")
+    print(test_gray_img)
     test_heatmap = cv2.applyColorMap(test_gray_img, cv2.COLORMAP_JET )
+
+    cv2.imshow("test_heatmap", test_heatmap)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
 
 
     org_img = cv2.imread('original_img_index2_label_0.png')
@@ -229,19 +304,21 @@ def plot_result(predictions):
     # # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
 
    
-    plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
+    plt.subplot(131),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
 
-    plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
+    plt.subplot(132),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
 
 
     #plt.subplot(122),plt.imshow(result_gray_img[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
+   
+    plt.subplot(133),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
+    #plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
+
     plt.colorbar()
     #plt.set_cmap('Reds')
     plt.set_cmap('seismic')
-    #plt.subplot(143),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
-    #plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
-
     plt.show()
+
 
 def main():
     # Initialize classification model
@@ -267,11 +344,12 @@ def main():
         # "Loss" for GPs - the marginal log likelihood
         # n_data refers to the amount of training data
         mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
-        train(train_x, train_y)
+        train(train_x, train_y, model, optimizer, mll)
 
     elif mode == 'Eval':
         print("start to test the model")
-        eval_superpixels(model, likelihood)
+        predictions = eval_superpixels(model, likelihood)
+        plot_result(predictions)
     else:
         raise Exception("No such mode")
 
