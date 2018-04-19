@@ -165,15 +165,13 @@ def train(train_x, train_y):
 
 def eval_superpixels(model, likelihood):
 
+    n = 224
+
     # load model
     model.load_state_dict(torch.load('./saved_gp_checkpoints/gp_cls_checkpoint.pth.tar'))
     # Set model and likelihood into eval mode
     model.eval()
     likelihood.eval()
-
-    # Initialize figiure an axis
-    f, observed_ax = plt.subplots(1, 1, figsize=(4, 3))
-    # # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
 
     test_x = []
     for i in range(n):
@@ -191,6 +189,12 @@ def eval_superpixels(model, likelihood):
 
     print("predictions.mean().cpu().data.numpy()")
     print(predictions.mean().cpu().data.numpy())
+    
+    return predictions
+
+
+def plot_result(predictions):
+
     org_test_gray_img = np.zeros((n,n))
 
     for i in range(n):
@@ -203,10 +207,7 @@ def eval_superpixels(model, likelihood):
     test_gray_img = test_gray_img/ test_gray_img.max()
     test_gray_img *= 255
 
-
     test_gray_img = np.array(test_gray_img, dtype = np.uint8)
-
-
     test_heatmap = cv2.applyColorMap(test_gray_img, cv2.COLORMAP_JET )
 
 
@@ -223,8 +224,11 @@ def eval_superpixels(model, likelihood):
     # final_masked_img = np.array(final_masked_img, dtype = np.uint8)
 
 
+     # Initialize figiure an axis
+    f, observed_ax = plt.subplots(1, 1, figsize=(4, 3))
+    # # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
 
-
+   
     plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
 
     plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
