@@ -101,12 +101,12 @@ def prepare_training_data():
                 if mask_label == 1:
                     if img[j][k] == 255:
                         train_x.append([j, k])
-                        train_y.append(1)  
+                        train_y.append(0)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
                     if img[j][k] == 255:
                         train_x.append([j, k])
-                        train_y.append(0) 
+                        train_y.append(1) 
                 else:
                     raise Exception("No such labels")
 
@@ -144,18 +144,19 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
 
 
 def train(train_x, train_y, model, optimizer, mll):
-    num_training_iterations = 100
-    for i in range(num_training_iterations):
-        # zero back propped gradients
-        optimizer.zero_grad()
-        
+    num_training_iterations = 20
+    for i in range(num_training_iterations):      
         batch_training = True
 
         if batch_training == True:
-            train_batch_size = 1000
-            full_output = []
-            for i in range(0, train_x.shape[0], train_batch_size):
-                train_indices = range(train_x.shape[0])[i: i+ train_batch_size]
+            train_loss = 0
+            train_batch_size = 100000
+            
+            for j in range(0, train_x.shape[0], train_batch_size):
+                 # zero back propped gradients
+                optimizer.zero_grad()
+
+                train_indices = range(train_x.shape[0])[j: j+ train_batch_size]
                 train_batch_x = train_x[train_indices]
                 train_batch_y = train_y[train_indices]
 
@@ -163,16 +164,23 @@ def train(train_x, train_y, model, optimizer, mll):
                 output_batch = model(train_batch_x)
 
                 # Calc loss and use to compute derivatives
-                loss = -mll(output_batch, train_y)
+                loss = -mll(output_batch, train_batch_y)
                 loss.backward()
                 optimizer.step()
-                #train_loss += loss.data[0] * len(data)
-            #print('Train Epoch: %d\tLoss: %.6f' % (epoch, train_loss / train_x.shape[0]))
+                train_loss += loss.data[0] * len(train_batch_x)
+            print('Train Epoch: %d\tLoss: %.6f' % (i, train_loss / train_x.shape[0]))
 
-        # print('Iter %d/%d - Loss: %.3f   log_lengthscale: %.3f' % (
-        #     i + 1, num_training_iterations, loss.data[0],
-        #     model.covar_module.base_kernel_module.log_lengthscale.data.squeeze()[0],
-        # ))
+        else:
+            # Make  prediction
+            output = model(train_x)
+
+            # Calc loss and use to compute derivatives
+            loss = -mll(output, train_y)
+
+            print('Iter %d/%d - Loss: %.3f   log_lengthscale: %.3f' % (
+                i + 1, num_training_iterations, loss.data[0],
+                model.covar_module.base_kernel_module.log_lengthscale.data.squeeze()[0],
+            ))
       
 
     torch.save(model.state_dict(), './saved_gp_checkpoints/gp_cls_checkpoint.pth.tar')
