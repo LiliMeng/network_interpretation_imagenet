@@ -22,11 +22,11 @@ from gpytorch.random_variables import GaussianRandomVariable
 from utils import normalize_image
 np.set_printoptions(threshold=np.nan)
 
-#dataset = 'IMAGENET'
-dataset = 'MNIST'
+dataset = 'IMAGENET'
+#dataset = 'MNIST'
 
-#mode = 'Train'
-mode = 'Eval'
+mode = 'Train'
+#mode = 'Eval'
 
 if dataset == 'MNIST':
     n = 28
@@ -50,7 +50,7 @@ def load_images_from_folder(folder):
     return img_filenames, labels
 
 def prepare_training_data():
-    mask_filenames, train_mask_labels = load_images_from_folder('/home/lili/Video/GP/examples/mnist/masks/')
+    mask_filenames, train_mask_labels = load_images_from_folder('./masks/')
 
     train_x = []
     train_y = []
@@ -69,7 +69,8 @@ def prepare_training_data():
                         dict_pixel[pixel_position] += mask_label
                     else:
                         dict_pixel[pixel_position]  = mask_label
-              
+    
+
     result_gray_img = np.zeros((n,n))
     for i in range(n):
         for j in range(n):
@@ -102,12 +103,12 @@ def prepare_training_data():
                 if mask_label == 1:
                     if img[j][k] == 0:
                         train_x.append([j, k])
-                        train_y.append(0)  
+                        train_y.append(1)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
                     if img[j][k] == 0:
                         train_x.append([j, k])
-                        train_y.append(1) 
+                        train_y.append(0) 
                 else:
                     raise Exception("No such labels")
 
@@ -125,7 +126,7 @@ def prepare_training_data():
 # as in https://arxiv.org/pdf/1503.01057.pdf
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=10, grid_bounds=[(0, 28), (0, 28)])
+        super(GPClassificationModel, self).__init__(grid_size=10, grid_bounds=[(0, n), (0, n)])
         # Near-zero mean
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         # RBF as universal approximator
@@ -160,7 +161,7 @@ def train(train_x, train_y, model, likelihood):
     # n_data refers to the amount of training data
     mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
-    num_training_iterations = 10
+    num_training_iterations = 30
   
     for i in range(num_training_iterations):
         batch_training = True
@@ -201,12 +202,12 @@ def train(train_x, train_y, model, likelihood):
             ))
             optimizer.step()
 
-    torch.save(model.state_dict(), './gp_saved_checkpoints/gp_cls_checkpoint.pth.tar')
+    torch.save(model.state_dict(), './gp_saved_checkpoints/imgenet100_gp_cls_checkpoint.pth.tar')
 
 def eval_superpixels(model, likelihood):
 
     # load model
-    model_dir = './gp_saved_checkpoints/gp_cls_checkpoint.pth.tar'
+    model_dir = './gp_saved_checkpoints/imgenet100_gp_cls_checkpoint.pth.tar'
    # model_dir = '/home/lili/Video/GP/examples/mnist/gp_saved_checkpoints/gp_cls_checkpoint.pth.tar'
     model.load_state_dict(torch.load(model_dir))
     # Set model and likelihood into eval mode
@@ -319,7 +320,7 @@ def plot_result(predictions):
 
 
     #org_img = cv2.imread('original_img_index2_label_0.png')
-    org_img = cv2.imread('original_img_index2_label_9.png')
+    org_img = cv2.imread('original_img_index2_label_0.png')
 
 
     # final_masked_img = org_img.transpose(2,0,1) * org_test_gray_img 
@@ -342,7 +343,7 @@ def plot_result(predictions):
 
     #plt.subplot(122),plt.imshow(result_gray_img[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
    
-    plt.subplot(133),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
+    plt.subplot(133),plt.imshow(test_heatmap,'gray'),plt.title('Predicted mask heatmap')
     #plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
 
     plt.colorbar()

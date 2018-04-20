@@ -1316,7 +1316,7 @@ def validate(val_loader, model, criterion):
                
                 #print("random_sampled_list: ", random_sampled_list)
                 mask = np.zeros(img_show.shape[:2], dtype= "uint8")
-                #mask.fill(255)
+                #mask.fill(1)
                 for (j, segVal) in enumerate(random_sampled_list):
                     mask[segments == segVal] = 1
                     

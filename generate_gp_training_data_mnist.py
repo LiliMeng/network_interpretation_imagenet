@@ -160,7 +160,7 @@ def eval_superpixel():
     count =0 
     for data, target in test_loader:
         count +=1
-        if count>17:
+        if count>2:
             break
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -176,11 +176,11 @@ def eval_superpixel():
         img *= 255
         img = img.astype(np.uint8)
        
-        cv2.imshow('original_img_index{}_label_{}.png'.format(count, target[0].cpu().data.numpy()[0]), img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow('original_img_index{}_label_{}.png'.format(count, target[0].cpu().data.numpy()[0]), img)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
-        if count == 17:
+        if count == 2:
 
             cv2.imwrite('original_img_index{}_label_{}.png'.format(count, target[0].cpu().data.numpy()[0]), img)
 
@@ -200,24 +200,26 @@ def eval_superpixel():
            
             correct_pred_count=0
             wrong_pred_count =0
-            for i in range(10):
+            for i in range(1000):
                 
                 total_num_segments = len(np.unique(segments))
-                num_conse_superpixels = int(0.4*total_num_segments)
+               # num_conse_superpixels = int(0.2*total_num_segments)
                
+                num_conse_superpixels = 1
                 print("total_num_segments: ", total_num_segments)
                 print("num_conse_superpixels: ", num_conse_superpixels)
                 firstIndex= randint(1, total_num_segments-num_conse_superpixels)
                
 
-                random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
-                
+                #random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
+                random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
+               
                 print("len(random_sampled_list): ", len(random_sampled_list))
                 mask = np.zeros(img.shape[:2], dtype= "uint8")
                 
-                
+                mask.fill(255)
                 for (j, segVal) in enumerate(random_sampled_list):
-                    mask[segments == segVal] = 255
+                    mask[segments == segVal] = 0
                     
 
                 masked_img = org_img * mask
@@ -267,13 +269,13 @@ def eval_superpixel():
                     cv2.imwrite('./mask_on_img/masked_imgs_{}_pred_{}_{}_{}.png'.format(i, pred_mask[0].cpu().numpy()[0], 0, mask_probability_score.cpu().data.numpy()[0]), pic)
 
                
-                plt.subplot(151),plt.imshow(colored_img, 'gray'),plt.title('original_img_label_{}.png'.format(target[0].cpu().data.numpy()[0]))
-                plt.subplot(152),plt.imshow(mark_boundaries(img_as_float(colored_img), segments),'gray'),plt.title('Superpixel')
-                plt.subplot(153),plt.imshow(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
-                plt.subplot(154),plt.imshow(cv2.cvtColor(colored_pic, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask gray')
-                plt.subplot(155),plt.imshow(cv2.cvtColor(mask_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask heatmap pred {}'.format(pred_mask[0].cpu().numpy()))
-                plt.show()
-                plt.close()
+                # plt.subplot(151),plt.imshow(colored_img, 'gray'),plt.title('original_img_label_{}.png'.format(target[0].cpu().data.numpy()[0]))
+                # plt.subplot(152),plt.imshow(mark_boundaries(img_as_float(colored_img), segments),'gray'),plt.title('Superpixel')
+                # plt.subplot(153),plt.imshow(cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB), 'gray'), plt.title("Mask")
+                # plt.subplot(154),plt.imshow(cv2.cvtColor(colored_pic, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask gray')
+                # plt.subplot(155),plt.imshow(cv2.cvtColor(mask_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with mask heatmap pred {}'.format(pred_mask[0].cpu().numpy()))
+                # plt.show()
+                # plt.close()
         
 if train_nn == True:
   for epoch in range(1, 5):
