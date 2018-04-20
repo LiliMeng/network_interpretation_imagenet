@@ -25,8 +25,8 @@ np.set_printoptions(threshold=np.nan)
 #dataset = 'IMAGENET'
 dataset = 'MNIST'
 
-mode = 'Train'
-#mode = 'Eval'
+#mode = 'Train'
+mode = 'Eval'
 
 if dataset == 'MNIST':
     n = 28
@@ -50,7 +50,7 @@ def load_images_from_folder(folder):
     return img_filenames, labels
 
 def prepare_training_data():
-    mask_filenames, train_mask_labels = load_images_from_folder('./masks')
+    mask_filenames, train_mask_labels = load_images_from_folder('/home/lili/Video/GP/examples/mnist/masks/')
 
     train_x = []
     train_y = []
@@ -60,15 +60,16 @@ def prepare_training_data():
     for i in range(len(mask_filenames)):
         img = cv2.imread(mask_filenames[i] ,0)
         mask_label = int(train_mask_labels[i])
+       
         for j in range(n):
             for k in range(n):
-                pixel_position = (j, k)        
-                if img[j][k] == 255:
+                pixel_position = (j, k)
+                if img[j][k] == 0:
                     if pixel_position in dict_pixel:
                         dict_pixel[pixel_position] += mask_label
                     else:
                         dict_pixel[pixel_position]  = mask_label
-
+              
     result_gray_img = np.zeros((n,n))
     for i in range(n):
         for j in range(n):
@@ -77,17 +78,17 @@ def prepare_training_data():
                 result_gray_img[i][j] = dict_pixel[pixel_pos]
 
 
-    result_gray_img_show = result_gray_img.copy()
+    result_gray_img -= result_gray_img.min()
+    result_gray_img = result_gray_img/ result_gray_img.max()
+    result_gray_img *= 255
 
-    result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
-    result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
-    result_gray_img_show *= 255
+    cv2.imwrite('./weighted_mask/weighted_mask.png', result_gray_img)
 
+     
+    result_gray_img = np.array(result_gray_img, dtype = np.uint8)
+    result_heatmap = cv2.applyColorMap(result_gray_img, cv2.COLORMAP_JET )
 
-    result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
-    result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
-
-    # # cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
+    cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
     cv2.imshow("result_heatmap", result_heatmap)
     cv2.waitKey()
     cv2.destroyAllWindows()
@@ -114,18 +115,17 @@ def prepare_training_data():
 
     train_x = Variable(torch.FloatTensor(np.asarray(train_x))).cuda()
     train_y = Variable(torch.FloatTensor(np.asarray(train_y))).cuda()
-
-    print(train_x.shape)
-    print(train_y.shape)
+    
+    print("train_x.shape: ", train_x.shape)
+    print("train_y.shape: ", train_y.shape)
 
     return train_x, train_y
-
 # # Our classification model is just KISS-GP run through a Bernoulli likelihood
 # We use KISS-GP (kernel interpolation for scalable structured Gaussian Processes)
 # as in https://arxiv.org/pdf/1503.01057.pdf
 class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
     def __init__(self):
-        super(GPClassificationModel, self).__init__(grid_size=10, grid_bounds=[(0, n), (0, n)])
+        super(GPClassificationModel, self).__init__(grid_size=10, grid_bounds=[(0, 28), (0, 28)])
         # Near-zero mean
         self.mean_module = ConstantMean(constant_bounds=[-1e-5, 1e-5])
         # RBF as universal approximator
@@ -141,6 +141,7 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         # Store as Gaussian
         latent_pred = GaussianRandomVariable(mean_x, covar_x)
         return latent_pred
+
 
 
 def train(train_x, train_y, model, likelihood):
@@ -161,11 +162,8 @@ def train(train_x, train_y, model, likelihood):
 
     num_training_iterations = 10
   
-
-    for i in range(num_training_iterations):    
-
-        batch_training = False
-
+    for i in range(num_training_iterations):
+        batch_training = True
         if batch_training == True:
             train_loss = 0
             train_batch_size = 100000
@@ -189,25 +187,28 @@ def train(train_x, train_y, model, likelihood):
             print('Train Epoch: %d\tLoss: %.6f' % (i, train_loss / train_x.shape[0]))
 
         else:
+            # zero back propped gradients
+            optimizer.zero_grad()
+           
             # Make  prediction
             output = model(train_x)
-
             # Calc loss and use to compute derivatives
             loss = -mll(output, train_y)
-
+            loss.backward()
             print('Iter %d/%d - Loss: %.3f   log_lengthscale: %.3f' % (
                 i + 1, num_training_iterations, loss.data[0],
                 model.covar_module.base_kernel_module.log_lengthscale.data.squeeze()[0],
             ))
-      
+            optimizer.step()
 
-    torch.save(model.state_dict(), './saved_gp_checkpoints/mnist_gp_cls_checkpoint.pth.tar')
-
+    torch.save(model.state_dict(), './gp_saved_checkpoints/gp_cls_checkpoint.pth.tar')
 
 def eval_superpixels(model, likelihood):
 
     # load model
-    model.load_state_dict(torch.load('./saved_gp_checkpoints/mnist_gp_cls_checkpoint.pth.tar'))
+    model_dir = './gp_saved_checkpoints/gp_cls_checkpoint.pth.tar'
+   # model_dir = '/home/lili/Video/GP/examples/mnist/gp_saved_checkpoints/gp_cls_checkpoint.pth.tar'
+    model.load_state_dict(torch.load(model_dir))
     # Set model and likelihood into eval mode
     model.eval()
     likelihood.eval()
@@ -222,7 +223,7 @@ def eval_superpixels(model, likelihood):
     print("test_x.shape")
     print(test_x.shape)
 
-    batch_testing = False
+    batch_testing = True
     if batch_testing == True:
         test_batch_size = 896
         full_predictions = []
@@ -262,7 +263,7 @@ def plot_result(predictions):
     for i in range(len(mask_filenames)):
         img = cv2.imread(mask_filenames[i] ,0)
         mask_label = int(train_mask_labels[i])
-        print('has read ', i)
+
         for j in range(n):
             for k in range(n):
                 pixel_position = (j, k)        
@@ -362,7 +363,7 @@ def main():
 
         train(train_x, train_y, model, likelihood)
 
-    #elif mode == 'Eval':
+    elif mode == 'Eval':
         print("start to test the model")
         predictions = eval_superpixels(model, likelihood)
         plot_result(predictions)

@@ -76,44 +76,44 @@ def prepare_training_data():
 
     train_x = []
     train_y = []
-    pixel_mask_counts = []
-    dict_pixel = {}
+    # pixel_mask_counts = []
+    # dict_pixel = {}
 
-    for i in range(len(mask_filenames)):
-        img = cv2.imread(mask_filenames[i] ,0)
-        mask_label = int(train_mask_labels[i])
-        print('has read ', i)
-        for j in range(n):
-            for k in range(n):
-                pixel_position = (j, k)        
-                if img[j][k] == 255:
-                    if pixel_position in dict_pixel:
-                        dict_pixel[pixel_position] += mask_label
-                    else:
-                        dict_pixel[pixel_position]  = mask_label
+    # for i in range(len(mask_filenames)):
+    #     img = cv2.imread(mask_filenames[i] ,0)
+    #     mask_label = int(train_mask_labels[i])
+    #     print('has read ', i)
+    #     for j in range(n):
+    #         for k in range(n):
+    #             pixel_position = (j, k)        
+    #             if img[j][k] == 255:
+    #                 if pixel_position in dict_pixel:
+    #                     dict_pixel[pixel_position] += mask_label
+    #                 else:
+    #                     dict_pixel[pixel_position]  = mask_label
 
-    result_gray_img = np.zeros((n,n))
-    for i in range(n):
-        for j in range(n):
-            pixel_pos = (i,j)
-            if pixel_pos in dict_pixel:
-                result_gray_img[i][j] = dict_pixel[pixel_pos]
-
-
-    result_gray_img_show = result_gray_img.copy()
-
-    result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
-    result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
-    result_gray_img_show *= 255
+    # result_gray_img = np.zeros((n,n))
+    # for i in range(n):
+    #     for j in range(n):
+    #         pixel_pos = (i,j)
+    #         if pixel_pos in dict_pixel:
+    #             result_gray_img[i][j] = dict_pixel[pixel_pos]
 
 
-    result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
-    result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
+    # result_gray_img_show = result_gray_img.copy()
+
+    # result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
+    # result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
+    # result_gray_img_show *= 255
+
+
+    # result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
+    # result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
 
     # # cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
-    cv2.imshow("result_heatmap", result_heatmap)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
+    # cv2.imshow("result_heatmap", result_heatmap)
+    # cv2.waitKey()
+    # cv2.destroyAllWindows()
 
     for i in range(len(mask_filenames)):
         img = cv2.imread(mask_filenames[i] ,0)
@@ -124,12 +124,12 @@ def prepare_training_data():
                 if mask_label == 1:
                     if img[j][k] == 255:
                         train_x.append([j, k])
-                        train_y.append(0)  
+                        train_y.append(1)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
                     if img[j][k] == 255:
                         train_x.append([j, k])
-                        train_y.append(1) 
+                        train_y.append(0) 
                 else:
                     raise Exception("No such labels")
 
@@ -175,11 +175,22 @@ def train(train_x, train_y, model, optimizer, mll):
             train_batch_size = 100000
             full_output = []
             for j in range(0, train_x.shape[0], train_batch_size):
-                # zero back propped gradients
-                optimizer.zero_grad()
                 train_indices = range(train_x.shape[0])[j: j+ train_batch_size]
+
+                print("train_indices")
+                print(train_indices)
                 train_batch_x = train_x[train_indices]
                 train_batch_y = train_y[train_indices]
+
+
+                print("train_batch_x.shape")
+                print(train_batch_x.shape)
+
+                print("train_batch_y.shape")
+                print(train_batch_y.shape)
+
+                # zero back propped gradients
+                optimizer.zero_grad()
 
                 # Make  prediction
                 output_batch = model(train_batch_x)
