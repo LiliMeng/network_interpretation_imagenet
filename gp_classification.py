@@ -22,7 +22,8 @@ from gpytorch.random_variables import GaussianRandomVariable
 from utils import normalize_image
 np.set_printoptions(threshold=np.nan)
 
-dataset = 'IMAGENET'
+#dataset = 'IMAGENET'
+dataset = 'MNIST'
 
 mode = 'Train'
 #mode = 'Eval'
@@ -59,7 +60,6 @@ def prepare_training_data():
     for i in range(len(mask_filenames)):
         img = cv2.imread(mask_filenames[i] ,0)
         mask_label = int(train_mask_labels[i])
-        print('has read ', i)
         for j in range(n):
             for k in range(n):
                 pixel_position = (j, k)        
@@ -99,12 +99,12 @@ def prepare_training_data():
             for k in range(n):
                 # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
                 if mask_label == 1:
-                    if img[j][k] == 255:
+                    if img[j][k] == 0:
                         train_x.append([j, k])
                         train_y.append(0)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
-                    if img[j][k] == 255:
+                    if img[j][k] == 0:
                         train_x.append([j, k])
                         train_y.append(1) 
                 else:
@@ -143,10 +143,28 @@ class GPClassificationModel(gpytorch.models.GridInducingVariationalGP):
         return latent_pred
 
 
-def train(train_x, train_y, model, optimizer, mll):
-    num_training_iterations = 20
-    for i in range(num_training_iterations):      
-        batch_training = True
+def train(train_x, train_y, model, likelihood):
+
+    # Find optimal model hyperparameters
+    model.train()
+    likelihood.train()
+
+    # Use the adam optimizer
+    optimizer = torch.optim.Adam([
+        {'params': model.parameters()},
+        # BernoulliLikelihood has no parameters
+    ], lr=0.1)
+
+    # "Loss" for GPs - the marginal log likelihood
+    # n_data refers to the amount of training data
+    mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
+
+    num_training_iterations = 10
+  
+
+    for i in range(num_training_iterations):    
+
+        batch_training = False
 
         if batch_training == True:
             train_loss = 0
@@ -183,15 +201,13 @@ def train(train_x, train_y, model, optimizer, mll):
             ))
       
 
-    torch.save(model.state_dict(), './saved_gp_checkpoints/gp_cls_checkpoint.pth.tar')
+    torch.save(model.state_dict(), './saved_gp_checkpoints/mnist_gp_cls_checkpoint.pth.tar')
 
 
 def eval_superpixels(model, likelihood):
 
-    n = 224
-
     # load model
-    model.load_state_dict(torch.load('./saved_gp_checkpoints/gp_cls_checkpoint.pth.tar'))
+    model.load_state_dict(torch.load('./saved_gp_checkpoints/mnist_gp_cls_checkpoint.pth.tar'))
     # Set model and likelihood into eval mode
     model.eval()
     likelihood.eval()
@@ -206,23 +222,30 @@ def eval_superpixels(model, likelihood):
     print("test_x.shape")
     print(test_x.shape)
 
-    test_batch_size = 896
-    full_predictions = []
-    for i in range(0, test_x.shape[0], test_batch_size):
-        test_indices = range(test_x.shape[0])[i: i+test_batch_size]
-        test_batch_x = test_x[test_indices]
+    batch_testing = False
+    if batch_testing == True:
+        test_batch_size = 896
+        full_predictions = []
+        for i in range(0, test_x.shape[0], test_batch_size):
+            test_indices = range(test_x.shape[0])[i: i+test_batch_size]
+            test_batch_x = test_x[test_indices]
 
-        print(test_batch_x.shape)
-               
-        # Make binary predictions by warmping the model output through a Bernoulli likelihood
+            print(test_batch_x.shape)
+                   
+            # Make binary predictions by warmping the model output through a Bernoulli likelihood
+            with gpytorch.beta_features.fast_pred_var():
+                predictions = likelihood(model(test_batch_x))
+                predictions_np = predictions.mean().cpu().data.numpy()
+                full_predictions.append(predictions_np)
+
+        full_predictions = np.asarray(full_predictions)
+        full_predictions= np.concatenate(full_predictions, axis=0)
+        print(full_predictions.shape)
+    else:
         with gpytorch.beta_features.fast_pred_var():
-            predictions = likelihood(model(test_batch_x))
-            predictions_np = predictions.mean().cpu().data.numpy()
-            full_predictions.append(predictions_np)
+            predictions = likelihood(model(test_x))
 
-    full_predictions = np.asarray(full_predictions)
-    full_predictions= np.concatenate(full_predictions, axis=0)
-    print(full_predictions.shape)
+        full_predictions = predictions.mean().cpu().data.numpy()
 
     return full_predictions
 
@@ -294,9 +317,8 @@ def plot_result(predictions):
     cv2.destroyAllWindows()
 
 
-    org_img = cv2.imread('original_img_index2_label_0.png')
-    print("org_img.shape")
-    print(org_img.shape)
+    #org_img = cv2.imread('original_img_index2_label_0.png')
+    org_img = cv2.imread('original_img_index2_label_9.png')
 
 
     # final_masked_img = org_img.transpose(2,0,1) * org_test_gray_img 
@@ -335,26 +357,12 @@ def main():
     # Likelihood is Bernoulli, warm predictive mean 
     likelihood = BernoulliLikelihood().cuda()
 
-    # Use the adam optimizer
-    optimizer = torch.optim.Adam([
-        {'params': model.parameters()},
-        # BernoulliLikelihood has no parameters
-    ], lr=0.1)
-
-
     if mode == 'Train':
         train_x, train_y = prepare_training_data()
 
-        # Find optimal model hyperparameters
-        model.train()
-        likelihood.train()
+        train(train_x, train_y, model, likelihood)
 
-        # "Loss" for GPs - the marginal log likelihood
-        # n_data refers to the amount of training data
-        mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
-        train(train_x, train_y, model, optimizer, mll)
-
-    elif mode == 'Eval':
+    #elif mode == 'Eval':
         print("start to test the model")
         predictions = eval_superpixels(model, likelihood)
         plot_result(predictions)
