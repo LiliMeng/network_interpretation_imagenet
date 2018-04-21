@@ -1302,7 +1302,7 @@ def validate(val_loader, model, criterion):
 
            
 
-            for i in range(100): 
+            for i in range(1000): 
                 
                 total_num_segments = len(np.unique(segments))
                 num_conse_superpixels = int(0.4*total_num_segments)

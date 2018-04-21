@@ -59,12 +59,13 @@ def prepare_training_data():
 
     for i in range(len(mask_filenames)):
         img = cv2.imread(mask_filenames[i] ,0)
+
         mask_label = int(train_mask_labels[i])
-       
+    
         for j in range(n):
             for k in range(n):
                 pixel_position = (j, k)
-                if img[j][k] == 0:
+                if img[j][k] == 255:
                     if pixel_position in dict_pixel:
                         dict_pixel[pixel_position] += mask_label
                     else:
@@ -79,15 +80,22 @@ def prepare_training_data():
                 result_gray_img[i][j] = dict_pixel[pixel_pos]
 
 
-    result_gray_img -= result_gray_img.min()
-    result_gray_img = result_gray_img/ result_gray_img.max()
-    result_gray_img *= 255
+    print(result_gray_img)
+    result_gray_img_show = result_gray_img.copy()
+    print("result_gray_img_show")
+    print(result_gray_img_show) 
+    result_gray_img_show -= result_gray_img_show.min()
+    print("result_gray_img_show.max() ", result_gray_img_show.max())
+    result_gray_img_show /= result_gray_img_show.max()
+    result_gray_img_show *= 255
 
-    cv2.imwrite('./weighted_mask/weighted_mask.png', result_gray_img)
+
 
      
-    result_gray_img = np.array(result_gray_img, dtype = np.uint8)
-    result_heatmap = cv2.applyColorMap(result_gray_img, cv2.COLORMAP_JET )
+    result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
+    print("result_gray_img_show")
+    print(result_gray_img_show)
+    result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET )
 
     cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
     cv2.imshow("result_heatmap", result_heatmap)
@@ -101,12 +109,12 @@ def prepare_training_data():
             for k in range(n):
                 # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
                 if mask_label == 1:
-                    if img[j][k] == 0:
+                    if img[j][k] == 255:
                         train_x.append([j, k])
                         train_y.append(1)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
-                    if img[j][k] == 0:
+                    if img[j][k] == 255:
                         train_x.append([j, k])
                         train_y.append(0) 
                 else:
@@ -161,7 +169,7 @@ def train(train_x, train_y, model, likelihood):
     # n_data refers to the amount of training data
     mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
-    num_training_iterations = 30
+    num_training_iterations = 20
   
     for i in range(num_training_iterations):
         batch_training = True
@@ -202,12 +210,12 @@ def train(train_x, train_y, model, likelihood):
             ))
             optimizer.step()
 
-    torch.save(model.state_dict(), './gp_saved_checkpoints/imgenet100_gp_cls_checkpoint.pth.tar')
+    torch.save(model.state_dict(), './gp_saved_checkpoints/imgenet1000_epoch10_gp_cls_checkpoint.pth.tar')
 
 def eval_superpixels(model, likelihood):
 
     # load model
-    model_dir = './gp_saved_checkpoints/imgenet100_gp_cls_checkpoint.pth.tar'
+    model_dir = './gp_saved_checkpoints/imgenet1000_epoch10_gp_cls_checkpoint.pth.tar'
    # model_dir = '/home/lili/Video/GP/examples/mnist/gp_saved_checkpoints/gp_cls_checkpoint.pth.tar'
     model.load_state_dict(torch.load(model_dir))
     # Set model and likelihood into eval mode
@@ -364,7 +372,7 @@ def main():
 
         train(train_x, train_y, model, likelihood)
 
-    elif mode == 'Eval':
+    #elif mode == 'Eval':
         print("start to test the model")
         predictions = eval_superpixels(model, likelihood)
         plot_result(predictions)
