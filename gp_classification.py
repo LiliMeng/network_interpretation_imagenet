@@ -109,12 +109,12 @@ def prepare_training_data():
             for k in range(n):
                 # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
                 if mask_label == 1:
-                    if img[j][k] == 255:
+                    if img[j][k] == 0:
                         train_x.append([j, k])
                         train_y.append(1)  
                 # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
                 elif mask_label == 0:
-                    if img[j][k] == 255:
+                    if img[j][k] == 0:
                         train_x.append([j, k])
                         train_y.append(0) 
                 else:
