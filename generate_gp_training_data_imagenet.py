@@ -21,7 +21,7 @@ import random
 from random import *
 import sys
 import matplotlib.pyplot as plt
-
+from operator import itemgetter
 from skimage.segmentation import felzenszwalb, slic, quickshift, watershed
 from skimage.segmentation import mark_boundaries
 from skimage.util import img_as_float
@@ -1074,117 +1074,19 @@ classes_dict = {0: 'tench, Tinca tinca',
  998: 'ear, spike, capitulum',
  999: 'toilet tissue, toilet paper, bathroom tissue'}
 
-def main():
-    global args, best_prec1
-    args = parser.parse_args()
-    args.batch_size=1
+n = 224
 
-    args.distributed = args.world_size > 1
-
-    if args.distributed:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size)
-
-    # create model
-    if args.pretrained:
-        print("=> using pre-trained model '{}'".format(args.arch))
-        model = models.__dict__[args.arch](pretrained=True)
-    else:
-        print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
-
-    if not args.distributed:
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
-    else:
-        model.cuda()
-        model = torch.nn.parallel.DistributedDataParallel(model)
-
-    # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
-
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch']
-            best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
-    cudnn.benchmark = True
-
-    # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
-
-    if args.evaluate:
-        validate(val_loader, model, criterion)
-        return
-
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            train_sampler.set_epoch(epoch)
-        adjust_learning_rate(optimizer, epoch)
-
-        # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
-
-        # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion)
-
-        # remember best prec@1 and save checkpoint
-        is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'arch': args.arch,
-            'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
-            'optimizer' : optimizer.state_dict(),
-        }, is_best)
+# Training data
+def load_images_from_folder(folder):
+    img_filenames = []
+    labels = []
+    for filename in os.listdir(folder):      
+        label=filename.split('_')[2].split('.')[0]
+        img_filename = os.path.join(folder,filename)
+        if img_filename is not None:
+            img_filenames.append(img_filename)
+            labels.append(label)
+    return img_filenames, labels
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
@@ -1302,7 +1204,7 @@ def validate(val_loader, model, criterion):
 
            
 
-            for i in range(10): 
+            for i in range(100): 
                 
                 total_num_segments = len(np.unique(segments))
                 num_conse_superpixels = int(0.4*total_num_segments)
@@ -1465,10 +1367,253 @@ def evaluate_superpixels():
 
     model.cuda()
 
-
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
     validate(val_loader, model, criterion)
- 
 
-evaluate_superpixels()
+# Training data
+def load_images_from_folder(folder):
+    img_filenames = []
+    labels = []
+    for filename in os.listdir(folder):      
+        label=filename.split('_')[2].split('.')[0]
+        img_filename = os.path.join(folder,filename)
+        if img_filename is not None:
+            img_filenames.append(img_filename)
+            labels.append(label)
+    return img_filenames, labels
+
+def evaluate_final_mask():
+    global args
+    args = parser.parse_args()
+
+    args.distributed = args.world_size > 1
+    args.batch_size=1
+
+    if args.distributed:
+        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                world_size=args.world_size)
+
+    cudnn.benchmark = True
+
+    # create model
+    print("=> using pre-trained model '{}'".format(args.arch))
+    model = models.__dict__[args.arch](pretrained=True)
+
+    valdir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+    #valdir = os.path.join(args.data, 'val')
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+
+    val_loader = torch.utils.data.DataLoader(
+            datasets.ImageFolder(valdir, transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+    model.cuda()
+
+    # define loss function (criterion) and optimizer
+    criterion = nn.CrossEntropyLoss().cuda()
+    validate_mask(val_loader, model, criterion)
+
+
+def validate_mask(val_loader, model, criterion):
+
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
+    # switch to evaluate mode
+    model.eval()
+
+    end = time.time()
+    count = 0
+    for i, (input, target) in enumerate(val_loader):
+        count += 1
+
+        if count >2:
+            break
+        
+        if count == 2:
+            target = target.cuda(async=True)
+            input_var = torch.autograd.Variable(input, volatile=True).cuda()
+            target_var = torch.autograd.Variable(target, volatile=True).cuda()
+
+            
+            img_show = input[0].numpy().copy()
+            img_show = img_show.transpose( 1, 2, 0 )
+            img_show -= img_show.min()
+            img_show /= img_show.max()
+            img_show *= 255
+            img_show = img_show.astype(np.uint8)
+           
+            cv2.imwrite('original_img_index{}_label_{}.png'.format(count, target[0]), img_show)
+
+
+            # cv2.imshow('org_img', img)
+
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+            segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
+            
+            print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
+            
+
+            cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+            # compute output
+            output = model(input_var)
+            loss = criterion(output, target_var)
+
+
+            pred = output.data.max(1, keepdim=True)[1]
+            label = target[0]
+            print("label ", label)
+            print("pred[0].cpu().numpy() ", pred[0].cpu().numpy()[0])
+           
+
+            if pred[0].cpu().numpy()[0] == label:
+                print("correct prediction, index ", count)
+
+            correct_pred_count = 0
+            wrong_pred_count = 0
+
+           
+
+            for i in range(1): 
+                
+                total_num_segments = len(np.unique(segments))
+                num_conse_superpixels = int(0.4*total_num_segments)
+                print("total_num_segments: ", total_num_segments)
+                print("num_conse_superpixels: ", num_conse_superpixels)
+                firstIndex= randint(1, total_num_segments-num_conse_superpixels)
+               
+
+                random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
+                #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
+               
+                #print("random_sampled_list: ", random_sampled_list)
+                #mask = np.zeros(img_show.shape[:2], dtype= "uint8")
+                mask = generate_new_mask()
+                # #mask.fill(1)
+                # for (j, segVal) in enumerate(random_sampled_list):
+                #     mask[segments == segVal] = 1
+                    
+                
+                masked_img = input[0].numpy().copy() * mask
+                
+                masked_img_batch = masked_img[None, :, :, :]
+
+            
+                masked_img_tensor = torch.autograd.Variable(torch.from_numpy(masked_img_batch)).cuda()
+                mask_output = model(masked_img_tensor)
+                
+                pred_mask = mask_output.data.max(1, keepdim=True)[1]
+               
+                masked_img_show = masked_img.copy()
+                masked_img_show = masked_img_show.transpose(1, 2, 0)
+                masked_img_show -= masked_img_show.min()
+                masked_img_show /= masked_img_show.max()
+                masked_img_show *= 255
+                masked_img_show = masked_img_show.astype(np.uint8)
+
+                if pred_mask[0].cpu().numpy()[0] == target[0]:
+                    correct_pred_count+=1
+                    print("correct_pred_count: ", correct_pred_count)
+                else:
+                    wrong_pred_count+=1
+                    print("wrong_pred_count: ", wrong_pred_count)
+                  
+def generate_new_mask():
+    mask_filenames, train_mask_labels = load_images_from_folder('./masks')
+
+    train_x = []
+    train_y = []
+    pixel_mask_counts = []
+    dict_pixel = {}
+
+    for i in range(len(mask_filenames)):
+        img = cv2.imread(mask_filenames[i] ,0)
+        mask_label = int(train_mask_labels[i])
+        print('has read ', i)
+        for j in range(n):
+            for k in range(n):
+                pixel_position = (j, k)        
+                if img[j][k] == 255:
+                    if pixel_position in dict_pixel:
+                        dict_pixel[pixel_position] += mask_label
+                    else:
+                        dict_pixel[pixel_position]  = mask_label
+
+
+    sorted_dict_pixel = sorted(dict_pixel.items(), key=itemgetter(1))
+
+
+
+    max_dict_value = max(dict_pixel.items(), key=itemgetter(1))[1]
+    min_dict_value = min(dict_pixel.items(), key=itemgetter(1))[1]
+
+    result_gray_img = np.zeros((n,n))
+    result_mask = np.zeros((n, n), dtype= "uint8")
+    for i in range(n):
+        for j in range(n):
+            pixel_pos = (i,j)
+            if pixel_pos in dict_pixel:
+                if dict_pixel[pixel_pos] < int(0.5*(max_dict_value-min_dict_value)):
+                    result_gray_img[i][j] = 0
+                    result_mask[i][j] = 0
+                else:
+                    result_gray_img[i][j] = dict_pixel[pixel_pos] 
+                    result_mask[i][j] = 1
+
+
+    # result_gray_img_show = result_gray_img.copy()
+
+    # result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
+    # result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
+    # result_gray_img_show *= 255
+
+    # result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
+    # result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
+ 
+    # org_img = cv2.imread('original_img_index2_label_0.png')
+    #  # Initialize figiure an axis
+    # f, observed_ax = plt.subplots(1, 1, figsize=(4, 3))
+    # # # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
+
+   
+    # plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
+
+    # plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
+
+
+    # #plt.subplot(122),plt.imshow(result_gray_img[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
+   
+    # #plt.subplot(133),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
+    # #plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
+
+    # plt.colorbar()
+    # #plt.set_cmap('Reds')
+    # plt.set_cmap('jet')
+    # plt.show()
+
+    return result_mask
+
+def main():
+    #evaluate_superpixels()
+
+    evaluate_final_mask()
+
+if __name__== "__main__":
+  main()
+

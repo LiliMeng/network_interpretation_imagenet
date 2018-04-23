@@ -78,6 +78,8 @@ def prepare_training_data():
             pixel_pos = (i,j)
             if pixel_pos in dict_pixel:
                 result_gray_img[i][j] = dict_pixel[pixel_pos]
+                train_x.append([i, j])
+                train_y.append(dict_pixel[pixel_pos])
 
 
     print(result_gray_img)
@@ -102,23 +104,25 @@ def prepare_training_data():
     cv2.waitKey()
     cv2.destroyAllWindows()
 
-    for i in range(len(mask_filenames)):
-        img = cv2.imread(mask_filenames[i] ,0)
-        mask_label = int(train_mask_labels[i])
-        for j in range(n):
-            for k in range(n):
-                # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
-                if mask_label == 1:
-                    if img[j][k] == 0:
-                        train_x.append([j, k])
-                        train_y.append(1)  
-                # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
-                elif mask_label == 0:
-                    if img[j][k] == 0:
-                        train_x.append([j, k])
-                        train_y.append(0) 
-                else:
-                    raise Exception("No such labels")
+
+
+    # for i in range(len(mask_filenames)):
+    #     img = cv2.imread(mask_filenames[i] ,0)
+    #     mask_label = int(train_mask_labels[i])
+    #     for j in range(n):
+    #         for k in range(n):
+    #             # If the mask make the correct prediction, then these pixels can be masked, each pixel mask has a label 0
+    #             if mask_label == 1:
+    #                 if img[j][k] == 0:
+    #                     train_x.append([j, k])
+    #                     train_y.append(1)  
+    #             # If the mask make the wrong prediciton, then these pixels cannot be masked, then each pixel mask has a label 1      
+    #             elif mask_label == 0:
+    #                 if img[j][k] == 0:
+    #                     train_x.append([j, k])
+    #                     train_y.append(0) 
+    #             else:
+    #                 raise Exception("No such labels")
 
 
 
@@ -169,10 +173,10 @@ def train(train_x, train_y, model, likelihood):
     # n_data refers to the amount of training data
     mll = gpytorch.mlls.VariationalMarginalLogLikelihood(likelihood, model, n_data=len(train_y))
 
-    num_training_iterations = 20
+    num_training_iterations = 30
   
     for i in range(num_training_iterations):
-        batch_training = True
+        batch_training = False
         if batch_training == True:
             train_loss = 0
             train_batch_size = 100000
@@ -210,12 +214,12 @@ def train(train_x, train_y, model, likelihood):
             ))
             optimizer.step()
 
-    torch.save(model.state_dict(), './gp_saved_checkpoints/imgenet1000_epoch10_gp_cls_checkpoint.pth.tar')
+    torch.save(model.state_dict(), './gp_saved_checkpoints/imgenet100_epoch10_gp_cls_checkpoint.pth.tar')
 
 def eval_superpixels(model, likelihood):
 
     # load model
-    model_dir = './gp_saved_checkpoints/imgenet1000_epoch10_gp_cls_checkpoint.pth.tar'
+    model_dir = './gp_saved_checkpoints/imgenet100_epoch10_gp_cls_checkpoint.pth.tar'
    # model_dir = '/home/lili/Video/GP/examples/mnist/gp_saved_checkpoints/gp_cls_checkpoint.pth.tar'
     model.load_state_dict(torch.load(model_dir))
     # Set model and likelihood into eval mode
