@@ -1255,7 +1255,7 @@ def validate(val_loader, model, criterion):
 
                 # plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
                 # plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
-                # plt.subplot(143),plt.imshow(, 'gray'), plt.title("Mask")
+                # plt.subplot(143),plt.imshow(mask*255, 'gray'), plt.title("Mask")
                 # plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
                 # plt.show()
                 # plt.close()
@@ -1533,6 +1533,13 @@ def validate_mask(val_loader, model, criterion):
                 else:
                     wrong_pred_count+=1
                     print("wrong_pred_count: ", wrong_pred_count)
+
+                plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
+                plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
+                plt.subplot(143),plt.imshow(mask*255,  'gray'), plt.title("Mask")
+                plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
+                plt.show()
+                plt.close()
                   
 def generate_new_mask():
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
