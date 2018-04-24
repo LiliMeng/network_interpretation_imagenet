@@ -1492,30 +1492,17 @@ def validate_mask(val_loader, model, criterion):
 
             for i in range(1): 
                 
-                total_num_segments = len(np.unique(segments))
-                num_conse_superpixels = int(0.4*total_num_segments)
-                print("total_num_segments: ", total_num_segments)
-                print("num_conse_superpixels: ", num_conse_superpixels)
-                firstIndex= randint(1, total_num_segments-num_conse_superpixels)
+                sorted_dict_values_set = get_pixel_sorted_mask_label()
                
-
-                random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
-                #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
-               
-                #print("random_sampled_list: ", random_sampled_list)
-                #mask = np.zeros(img_show.shape[:2], dtype= "uint8")
-                mask = generate_new_mask()
-                # #mask.fill(1)
-                # for (j, segVal) in enumerate(random_sampled_list):
-                #     mask[segments == segVal] = 1
-                    
-                
+                mask = generate_new_mask(sorted_dict_values_set, mask_threshold)
+                          
                 masked_img = input[0].numpy().copy() * mask
                 
                 masked_img_batch = masked_img[None, :, :, :]
 
-            
                 masked_img_tensor = torch.autograd.Variable(torch.from_numpy(masked_img_batch)).cuda()
+                
+                # Evaluate the NN model 
                 mask_output = model(masked_img_tensor)
                 
                 pred_mask = mask_output.data.max(1, keepdim=True)[1]
@@ -1541,7 +1528,7 @@ def validate_mask(val_loader, model, criterion):
                 plt.show()
                 plt.close()
                   
-def generate_new_mask():
+def get_pixel_sorted_mask_label():
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
     train_x = []
@@ -1562,21 +1549,21 @@ def generate_new_mask():
                     else:
                         dict_pixel[pixel_position]  = mask_label
 
+    sorted_dict_values_set = sorted(set(dict_pixel.values()))
+    print("sorted_dict_values")
+    print(sorted_dict_values)
 
-    sorted_dict_pixel = sorted(dict_pixel.items(), key=itemgetter(1))
+    return sorted_dict_values_set
 
-
-
-    max_dict_value = max(dict_pixel.items(), key=itemgetter(1))[1]
-    min_dict_value = min(dict_pixel.items(), key=itemgetter(1))[1]
-
+def generate_new_mask(sorted_dict_values_set, mask_threshold):
+    
     result_gray_img = np.zeros((n,n))
     result_mask = np.zeros((n, n), dtype= "uint8")
     for i in range(n):
         for j in range(n):
             pixel_pos = (i,j)
             if pixel_pos in dict_pixel:
-                if dict_pixel[pixel_pos] < int(0.5*(max_dict_value-min_dict_value)):
+                if dict_pixel[pixel_pos] <= sorted_dict_values_set[mask_threshold]:
                     result_gray_img[i][j] = 0
                     result_mask[i][j] = 0
                 else:
