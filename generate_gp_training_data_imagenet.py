@@ -1503,9 +1503,13 @@ def validate_mask(val_loader, model, criterion):
 
                     midpoint = int((first + last)/2)
                 
-                    mask_threshold1 = sorted_dict_values_set[midpoint]
+                    #mask_threshold1 = sorted_dict_values_set[midpoint]
 
-                    mask_threshold2 = sorted_dict_values_set[midpoint+1]
+                    #mask_threshold2 = sorted_dict_values_set[midpoint+1]
+
+                    mask_threshold1 = 497
+                    mask_threshold2 = 504
+                    
 
                     print("len(sorted_dict_values_set)")
                     print(len(sorted_dict_values_set))
@@ -1550,6 +1554,17 @@ def validate_mask(val_loader, model, criterion):
                     masked_img_show2 *= 255
                     masked_img_show2 = masked_img_show2.astype(np.uint8)
 
+                    # f, axarr = plt.subplots(1, 1)
+
+                    # plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
+                    # plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
+                    
+                    # plt.subplot(143),plt.imshow(mask1*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold1))
+                    # plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show1, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask1[0].cpu().numpy()[0]]))
+                
+                    # plt.show()
+                    # plt.close()
+
                 
                     if pred_mask1[0].cpu().numpy()[0] == target[0]:
 
@@ -1559,19 +1574,17 @@ def validate_mask(val_loader, model, criterion):
                         if pred_mask2[0].cpu().numpy()[0]!= target[0]:
                             print("masked label threshold")
                             print(mask_threshold1)
-                            
-                            plt.subplot(321),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
-                            plt.subplot(322),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
-                            plt.subplot(321),plt.imshow(mask1*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold1))
-                            plt.subplot(322),plt.imshow(cv2.cvtColor(masked_img_show1, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]))
-                            
-                            plt.subplot(321),plt.imshow(mask2*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold2))
-                            plt.subplot(322),plt.imshow(cv2.cvtColor(masked_img_show2, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]))
-                            
-                            
+                            f, axarr = plt.subplots(1, 1)
 
+                            plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
+                            plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
+                            
+                            plt.subplot(143),plt.imshow(mask2*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold2))
+                            plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show2, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]))
+                        
                             plt.show()
                             plt.close()
+                            return mask_threshold1
                         else:
                             first = midpoint+1      
                     else:
@@ -1581,7 +1594,7 @@ def validate_mask(val_loader, model, criterion):
                         print("masked label threshold")
                         print(mask_threshold1)
                         
-
+    
                         
                           
 def get_pixel_sorted_mask_label():
