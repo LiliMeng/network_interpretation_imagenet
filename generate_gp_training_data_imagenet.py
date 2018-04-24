@@ -1493,6 +1493,7 @@ def validate_mask(val_loader, model, criterion):
             for i in range(1): 
                 
                 dict_pixel = get_pixel_sorted_mask_label()
+                plot_summed_heatmap(dict_pixel)
                 sorted_dict_values_set = sorted(set(dict_pixel.values())) 
 
                 first = 0
@@ -1533,13 +1534,21 @@ def validate_mask(val_loader, model, criterion):
                     
                     pred_mask1 = mask_output1.data.max(1, keepdim=True)[1]
                     pred_mask2 = mask_output2.data.max(1, keepdim=True)[1]
+
+
+                    masked_img_show1 = masked_img1.copy()
+                    masked_img_show1 = masked_img_show1.transpose(1, 2, 0)
+                    masked_img_show1 -= masked_img_show1.min()
+                    masked_img_show1 /= masked_img_show1.max()
+                    masked_img_show1 *= 255
+                    masked_img_show1 = masked_img_show1.astype(np.uint8)
                    
-                    masked_img_show = masked_img1.copy()
-                    masked_img_show = masked_img_show.transpose(1, 2, 0)
-                    masked_img_show -= masked_img_show.min()
-                    masked_img_show /= masked_img_show.max()
-                    masked_img_show *= 255
-                    masked_img_show = masked_img_show.astype(np.uint8)
+                    masked_img_show2 = masked_img2.copy()
+                    masked_img_show2 = masked_img_show2.transpose(1, 2, 0)
+                    masked_img_show2-= masked_img_show2.min()
+                    masked_img_show2 /= masked_img_show2.max()
+                    masked_img_show2 *= 255
+                    masked_img_show2 = masked_img_show2.astype(np.uint8)
 
                 
                     if pred_mask1[0].cpu().numpy()[0] == target[0]:
@@ -1551,11 +1560,16 @@ def validate_mask(val_loader, model, criterion):
                             print("masked label threshold")
                             print(mask_threshold1)
                             
-                            plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
-                            plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
-                            plt.subplot(143),plt.imshow(mask1*255,  'gray'), plt.title("Mask")
-                            plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask1[0].cpu().numpy()[0]]))
+                            plt.subplot(321),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
+                            plt.subplot(322),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
+                            plt.subplot(321),plt.imshow(mask1*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold1))
+                            plt.subplot(322),plt.imshow(cv2.cvtColor(masked_img_show1, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]))
                             
+                            plt.subplot(321),plt.imshow(mask2*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold2))
+                            plt.subplot(322),plt.imshow(cv2.cvtColor(masked_img_show2, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]))
+                            
+                            
+
                             plt.show()
                             plt.close()
                         else:
@@ -1598,7 +1612,7 @@ def get_pixel_sorted_mask_label():
    
     return dict_pixel
 
-def plot_summed_heatmap():
+def plot_summed_heatmap(dict_pixel):
 
     result_gray_img = np.zeros((n,n))
     result_mask = np.zeros((n, n), dtype= "uint8")
