@@ -77,7 +77,8 @@ parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
 parser.add_argument('--eval_img_index', default=400, type=int,
                     help='the index of evaluation image')
-
+parser.add_argument('--num_mask_samples', default=10, type=int,
+                    help='the number of mask samples')
 
 
 dataset = "imagenet"
@@ -214,7 +215,7 @@ def validate(val_loader, model, criterion, eval_img_index):
                 correct_pred_count = 0
                 wrong_pred_count = 0
 
-                for i in range(10): 
+                for i in range(args.num_mask_samples): 
                     
                     total_num_segments = len(np.unique(segments))
                     num_conse_superpixels = int(0.4*total_num_segments)
@@ -262,7 +263,10 @@ def validate(val_loader, model, criterion, eval_img_index):
                         cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
             else:
                 print("wrong prediction")
-  
+                print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
+    
+    return correct_pred_count
+
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
@@ -591,9 +595,12 @@ def main():
     for i in range(5000):
         eval_img_index = 100*i
 
-        validate(val_loader, model, criterion, eval_img_index)
+        correct_pred_count = validate(val_loader, model, criterion, eval_img_index)
 
-        validate_mask(val_loader, model, criterion, eval_img_index)
+        if correct_pred_count >0 :
+
+            validate_mask(val_loader, model, criterion, eval_img_index)
+
 
 if __name__== "__main__":
   main()
