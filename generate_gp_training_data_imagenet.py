@@ -261,12 +261,13 @@ def validate(val_loader, model, criterion, eval_img_index):
                         print("wrong_pred_count: ", wrong_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask*255)
                         cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
+                
+                return correct_pred_count
             else:
                 print("wrong prediction")
                 print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
-    
-    return correct_pred_count
-
+                
+    return 0
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
@@ -596,6 +597,8 @@ def main():
         eval_img_index = 100*i
 
         correct_pred_count = validate(val_loader, model, criterion, eval_img_index)
+        print("correct_pred_count")
+        print(correct_pred_count)
 
         if correct_pred_count >0 :
 
