@@ -146,7 +146,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
                    data_time=data_time, loss=losses, top1=top1, top5=top5))
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, eval_img_index):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -160,7 +160,7 @@ def validate(val_loader, model, criterion):
     for i, (input, target) in enumerate(val_loader):
         count += 1
 
-        if count >500:
+        if count > eval_img_index:
             break
         
        
@@ -177,7 +177,7 @@ def validate(val_loader, model, criterion):
         img_show = img_show.astype(np.uint8)
         # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
         # cv2.waitKey(0)
-        if count == 500:
+        if count == eval_img_index:
             cv2.imwrite('original_img_index{}_label_{}.png'.format(count, target[0]), img_show)
 
 
@@ -249,8 +249,6 @@ def validate(val_loader, model, criterion):
                     masked_img_show *= 255
                     masked_img_show = masked_img_show.astype(np.uint8)
 
-            
-
                     if pred_mask[0].cpu().numpy()[0] == target[0]:
                         correct_pred_count+=1
                         print("correct_pred_count: ", correct_pred_count)
@@ -263,36 +261,7 @@ def validate(val_loader, model, criterion):
                         cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
             else:
                 print("wrong prediction")
-                # plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]))
-                # plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel')
-                # plt.subplot(143),plt.imshow(mask*255, 'gray'), plt.title("Mask")
-                # plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask[0].cpu().numpy()[0]]))
-                # plt.show()
-                # plt.close()
-        #     # measure accuracy and record loss
-        #     prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        #     losses.update(loss.data[0], input.size(0))
-        #     top1.update(prec1[0], input.size(0))
-        #     top5.update(prec5[0], input.size(0))
-
-        #     # measure elapsed time
-        #     batch_time.update(time.time() - end)
-        #     end = time.time()
-
-        #     if i % args.print_freq == 0:
-        #         print('Test: [{0}/{1}]\t'
-        #               'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-        #               'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-        #               'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-        #               'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-        #                i, len(val_loader), batch_time=batch_time, loss=losses,
-        #                top1=top1, top5=top5))
-
-        # print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
-        #       .format(top1=top1, top5=top5))
-
-    return top1.avg
-
+  
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
@@ -342,7 +311,7 @@ def accuracy(output, target, topk=(1,)):
 
 
 
-def evaluate_superpixels():
+def evaluate_superpixels(val_data_dir):
     global args
     args = parser.parse_args()
 
@@ -357,16 +326,13 @@ def evaluate_superpixels():
 
     # create model
     print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
-
-    valdir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
-    #valdir = os.path.join(args.data, 'val')
+    model = models.__dict__[args.arch](pretrained=True)sssssss
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
 
     val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(valdir, transforms.Compose([
+            datasets.ImageFolder(val_data_dir, transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
@@ -393,7 +359,7 @@ def load_images_from_folder(folder):
             labels.append(label)
     return img_filenames, labels
 
-def evaluate_final_mask():
+def evaluate_final_mask(val_data_dir):
     global args
     args = parser.parse_args()
 
@@ -410,14 +376,11 @@ def evaluate_final_mask():
     print("=> using pre-trained model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=True)
 
-    valdir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
-    #valdir = os.path.join(args.data, 'val')
-
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
 
     val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(valdir, transforms.Compose([
+            datasets.ImageFolder(val_data_dir, transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
@@ -433,7 +396,7 @@ def evaluate_final_mask():
     validate_mask(val_loader, model, criterion)
 
 
-def validate_mask(val_loader, model, criterion):
+def validate_mask(val_loader, model, criterion, val_img_index):
 
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -448,10 +411,10 @@ def validate_mask(val_loader, model, criterion):
     for i, (input, target) in enumerate(val_loader):
         count += 1
 
-        if count >500:
+        if count > val_img_index:
             break
         
-        if count == 500:
+        if count == val_img_index:
             target = target.cuda(async=True)
             input_var = torch.autograd.Variable(input, volatile=True).cuda()
             target_var = torch.autograd.Variable(target, volatile=True).cuda()
@@ -464,22 +427,14 @@ def validate_mask(val_loader, model, criterion):
             img_show *= 255
             img_show = img_show.astype(np.uint8)
            
-           # cv2.imwrite('original_img_index{}_label_{}.png'.format(count, target[0]), img_show)
-
-
-            # cv2.imshow('org_img', img)
-
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
             
             print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
             
 
-            cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            # cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
 
             # compute output
             output = model(input_var)
@@ -488,113 +443,109 @@ def validate_mask(val_loader, model, criterion):
 
             pred = output.data.max(1, keepdim=True)[1]
             label = target[0]
-            print("label ", label)
-            print("pred[0].cpu().numpy() ", pred[0].cpu().numpy()[0])
-           
 
             if pred[0].cpu().numpy()[0] == label:
                 print("correct prediction, index ", count)
 
             correct_pred_count = 0
             wrong_pred_count = 0
-
-            for i in range(1): 
                 
-                dict_pixel = get_pixel_sorted_mask_label()
-                plot_summed_heatmap(img_show, label, dict_pixel)
-                sorted_dict_values_set = sorted(set(dict_pixel.values())) 
+            dict_pixel = get_pixel_sorted_mask_label()
+            plot_summed_heatmap(img_show, label, dict_pixel)
+            sorted_dict_values_set = sorted(set(dict_pixel.values())) 
 
-                first = 0
-                last = len(sorted_dict_values_set) -1 
+            # Binary search the pixel label threshold
+            first = 0
+            last = len(sorted_dict_values_set) -1 
 
-                while first<= last:
+            while first<= last:
 
-                    midpoint = int((first + last)/2)
+                midpoint = int((first + last)/2)
+            
+                mask_threshold1 = sorted_dict_values_set[midpoint]
+
+                mask_threshold2 = sorted_dict_values_set[midpoint+1]   
                 
-                    mask_threshold1 = sorted_dict_values_set[midpoint]
+                mask1 = generate_new_mask(dict_pixel, mask_threshold1)
 
-                    mask_threshold2 = sorted_dict_values_set[midpoint+1]   
-                    
-                    mask1 = generate_new_mask(dict_pixel, mask_threshold1)
+                mask2 = generate_new_mask(dict_pixel, mask_threshold2)
 
-                    mask2 = generate_new_mask(dict_pixel, mask_threshold2)
+                print("sorted_dict_values_set")
+                print(sorted_dict_values_set)  
 
-                    print("sorted_dict_values_set")
-                    print(sorted_dict_values_set)  
-
-                    print("len(sorted_dict_values_set)")
-                    print(len(sorted_dict_values_set))  
-                              
-                    masked_img1 = input[0].numpy().copy() * mask1
-                    masked_img2 = input[0].numpy().copy() * mask2
-                    
-                    masked_img_batch1 = masked_img1[None, :, :, :]
-                    masked_img_batch2 = masked_img2[None, :, :, :]
-
-                    masked_img_tensor1 = torch.autograd.Variable(torch.from_numpy(masked_img_batch1)).cuda()
-                    masked_img_tensor2 = torch.autograd.Variable(torch.from_numpy(masked_img_batch2)).cuda()
-                    # Evaluate the NN model 
-                    mask_output1 = model(masked_img_tensor1)
-                    mask_output2 = model(masked_img_tensor2)
-                    
-                    pred_mask1 = mask_output1.data.max(1, keepdim=True)[1]
-                    pred_mask2 = mask_output2.data.max(1, keepdim=True)[1]
-
-
-                    masked_img_show1 = masked_img1.copy()
-                    masked_img_show1 = masked_img_show1.transpose(1, 2, 0)
-                    masked_img_show1 -= masked_img_show1.min()
-                    masked_img_show1 /= masked_img_show1.max()
-                    masked_img_show1 *= 255
-                    masked_img_show1 = masked_img_show1.astype(np.uint8)
-                   
-                    masked_img_show2 = masked_img2.copy()
-                    masked_img_show2 = masked_img_show2.transpose(1, 2, 0)
-                    masked_img_show2-= masked_img_show2.min()
-                    masked_img_show2 /= masked_img_show2.max()
-                    masked_img_show2 *= 255
-                    masked_img_show2 = masked_img_show2.astype(np.uint8)
+                print("len(sorted_dict_values_set)")
+                print(len(sorted_dict_values_set))  
+                          
+                masked_img1 = input[0].numpy().copy() * mask1
+                masked_img2 = input[0].numpy().copy() * mask2
                 
-                    if pred_mask1[0].cpu().numpy()[0] == target[0]:
+                masked_img_batch1 = masked_img1[None, :, :, :]
+                masked_img_batch2 = masked_img2[None, :, :, :]
 
-                        correct_pred_count+=1
-                        print("correct_pred_count: ", correct_pred_count)
+                masked_img_tensor1 = torch.autograd.Variable(torch.from_numpy(masked_img_batch1)).cuda()
+                masked_img_tensor2 = torch.autograd.Variable(torch.from_numpy(masked_img_batch2)).cuda()
+                # Evaluate the NN model 
+                mask_output1 = model(masked_img_tensor1)
+                mask_output2 = model(masked_img_tensor2)
+                
+                pred_mask1 = mask_output1.data.max(1, keepdim=True)[1]
+                pred_mask2 = mask_output2.data.max(1, keepdim=True)[1]
+
+
+                masked_img_show1 = masked_img1.copy()
+                masked_img_show1 = masked_img_show1.transpose(1, 2, 0)
+                masked_img_show1 -= masked_img_show1.min()
+                masked_img_show1 /= masked_img_show1.max()
+                masked_img_show1 *= 255
+                masked_img_show1 = masked_img_show1.astype(np.uint8)
+               
+                masked_img_show2 = masked_img2.copy()
+                masked_img_show2 = masked_img_show2.transpose(1, 2, 0)
+                masked_img_show2-= masked_img_show2.min()
+                masked_img_show2 /= masked_img_show2.max()
+                masked_img_show2 *= 255
+                masked_img_show2 = masked_img_show2.astype(np.uint8)
+            
+                if pred_mask1[0].cpu().numpy()[0] == target[0]:
+
+                    correct_pred_count+=1
+                    print("correct_pred_count: ", correct_pred_count)
+                    
+                    if pred_mask2[0].cpu().numpy()[0]!= target[0]:
+            
+                        plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]),  fontsize=60)
+                        plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel',  fontsize=60)
+                      
+                        plt.subplot(143),plt.imshow(mask1*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold1),  fontsize=60)
+                        plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show1, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask1[0].cpu().numpy()[0]]),  fontsize=60)
                         
-                        if pred_mask2[0].cpu().numpy()[0]!= target[0]:
-                
-                            plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]),  fontsize=60)
-                            plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel',  fontsize=60)
-                          
-                            plt.subplot(143),plt.imshow(mask1*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold1),  fontsize=60)
-                            plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show1, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask1[0].cpu().numpy()[0]]),  fontsize=60)
-                            
-                            figure = plt.gcf() # get current figure
-                            figure.set_size_inches(90, 30)
-                          
-                            plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(i, mask_threshold1))
-                           
-                           
-                            plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]), fontsize=60)
-                            plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel', fontsize=60)
-                            
-                            plt.subplot(143),plt.imshow(mask2*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold2), fontsize=60)
-                            plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show2, cv2.COLOR_BGR2RGB),'gray'),plt.title('pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]),fontsize=60)
-                            
-                            figure = plt.gcf() # get current figure
-                            figure.set_size_inches(90, 30)
-                            plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(i, mask_threshold2))
-                            # plt.show()
-                            # plt.close()
-                     
-                            return mask_threshold1
-                        else:
-                            first = midpoint+1      
+                        figure = plt.gcf() # get current figure
+                        figure.set_size_inches(90, 30)
+                      
+                        plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(i, mask_threshold1))
+                       
+                       
+                        plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]), fontsize=60)
+                        plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel', fontsize=60)
+                        
+                        plt.subplot(143),plt.imshow(mask2*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold2), fontsize=60)
+                        plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show2, cv2.COLOR_BGR2RGB),'gray'),plt.title('pred_{}'.format(classes_dict[pred_mask2[0].cpu().numpy()[0]]),fontsize=60)
+                        
+                        figure = plt.gcf() # get current figure
+                        figure.set_size_inches(90, 30)
+                        plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(i, mask_threshold2))
+                        # plt.show()
+                        # plt.close()
+                 
+                        return mask_threshold1
                     else:
-                        wrong_pred_count+=1
-                        print("wrong_pred_count: ", wrong_pred_count)
-                        last = midpoint-1
-                        print("masked label threshold")
-                        print(mask_threshold1)
+                        first = midpoint+1      
+                else:
+                    wrong_pred_count+=1
+                    print("wrong_pred_count: ", wrong_pred_count)
+                    last = midpoint-1
+                    print("masked label threshold")
+                    print(mask_threshold1)
                         
                     
                           
@@ -656,8 +607,7 @@ def plot_summed_heatmap(org_img, label, dict_pixel):
     plt.colorbar()
     plt.set_cmap('jet')
     plt.savefig('result_imgs/index_{}_label_{}.png'.format(i, classes_dict[label]))
-    # plt.show()
-    # plt.close()
+
 
 def generate_new_mask(dict_pixel, mask_threshold):
 
@@ -678,7 +628,9 @@ def generate_new_mask(dict_pixel, mask_threshold):
     return result_mask
 
 def main():
-    #evaluate_superpixels()
+
+    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+    #evaluate_superpixels(val_data_dir)
 
     evaluate_final_mask()
 
