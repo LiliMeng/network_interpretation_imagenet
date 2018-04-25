@@ -77,7 +77,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
 parser.add_argument('--eval_img_index', default=400, type=int,
                     help='the index of evaluation image')
-parser.add_argument('--num_mask_samples', default=10, type=int,
+parser.add_argument('--num_mask_samples', default=100, type=int,
                     help='the number of mask samples')
 
 
@@ -255,12 +255,12 @@ def validate(val_loader, model, criterion, eval_img_index):
                         correct_pred_count+=1
                         print("correct_pred_count: ", correct_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 1), mask*255)
-                        cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
+                       # cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
                     else:
                         wrong_pred_count+=1
                         print("wrong_pred_count: ", wrong_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask*255)
-                        cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
+                        #cv2.imwrite('./mask_on_img/masked_imgs_{}.png'.format(i), masked_img_show)
                 
                 return correct_pred_count
             else:
