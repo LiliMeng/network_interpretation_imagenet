@@ -29,6 +29,10 @@ from skimage.util import img_as_float
 from utils import normalize_image
 from imagenet_lables import *
 
+best_prec1 = 0
+np.set_printoptions(threshold=np.nan)
+
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -69,12 +73,16 @@ parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
+parser.add_argument('--eval_img_index', default=100, type=int,
+                    help='the index of evaluation image')
 
-best_prec1 = 0
-np.set_printoptions(threshold=np.nan)
 
 
-n = 224
+dataset = "imagenet"
+if dataset == "imagenet":
+    n = 224
+else:
+    raise Exception("this dataset is not implemented yet")
 
 # Training data
 def load_images_from_folder(folder):
