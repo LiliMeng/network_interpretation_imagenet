@@ -310,43 +310,6 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
-
-def evaluate_superpixels(val_data_dir, eval_img_index):
-    global args
-    args = parser.parse_args()
-
-    args.distributed = args.world_size > 1
-    args.batch_size=1
-
-    if args.distributed:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size)
-
-    cudnn.benchmark = True
-
-    # create model
-    print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-
-    val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(val_data_dir, transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ])),
-            batch_size=args.batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-    model.cuda()
-
-    # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-    validate(val_loader, model, criterion, eval_img_index)
-
 # Training data
 def load_images_from_folder(folder):
     img_filenames = []
@@ -358,42 +321,6 @@ def load_images_from_folder(folder):
             img_filenames.append(img_filename)
             labels.append(label)
     return img_filenames, labels
-
-def evaluate_final_mask(val_data_dir, val_img_index):
-    global args
-    args = parser.parse_args()
-
-    args.distributed = args.world_size > 1
-    args.batch_size=1
-
-    if args.distributed:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size)
-
-    cudnn.benchmark = True
-
-    # create model
-    print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-
-    val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(val_data_dir, transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ])),
-            batch_size=args.batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-    model.cuda()
-
-    # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-    validate_mask(val_loader, model, criterion, val_img_index)
 
 
 def validate_mask(val_loader, model, criterion, val_img_index):
@@ -630,14 +557,43 @@ def main():
     global args
     args = parser.parse_args()
 
+    args.distributed = args.world_size > 1
+    args.batch_size=1
+
+    if args.distributed:
+        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                world_size=args.world_size)
+
     val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
 
+    cudnn.benchmark = True
+
+    # create model
+    print("=> using pre-trained model '{}'".format(args.arch))
+    model = models.__dict__[args.arch](pretrained=True)
+    model.cuda()
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                    std=[0.229, 0.224, 0.225])
+
+    val_loader = torch.utils.data.DataLoader(
+            datasets.ImageFolder(val_data_dir, transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+    criterion = nn.CrossEntropyLoss().cuda()
+
     for i in range(5000):
-        val_img_index = 100*i
+        eval_img_index = 100*i
 
-        evaluate_superpixels(val_data_dir, val_img_index)
+        validate(val_loader, model, criterion, eval_img_index)
 
-        evaluate_final_mask(val_data_dir, val_img_index)
+        validate_mask(val_loader, model, criterion, eval_img_index)
 
 if __name__== "__main__":
   main()
