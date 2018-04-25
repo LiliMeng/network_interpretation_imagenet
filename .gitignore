@@ -3,3 +3,6 @@ __pycache__
 masks
 mask_on_img
 data
+gp_saved_checkpoints/
+result_imgs/
+
