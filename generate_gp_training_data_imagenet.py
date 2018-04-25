@@ -20,6 +20,7 @@ import numpy as np
 import random
 from random import *
 import sys
+
 import matplotlib.pyplot as plt
 from operator import itemgetter
 from skimage.segmentation import felzenszwalb, slic, quickshift, watershed
@@ -28,6 +29,7 @@ from skimage.util import img_as_float
 
 from utils import normalize_image
 from imagenet_lables import *
+
 
 best_prec1 = 0
 np.set_printoptions(threshold=np.nan)
@@ -73,7 +75,7 @@ parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
-parser.add_argument('--eval_img_index', default=100, type=int,
+parser.add_argument('--eval_img_index', default=400, type=int,
                     help='the index of evaluation image')
 
 
@@ -162,8 +164,7 @@ def validate(val_loader, model, criterion, eval_img_index):
 
         if count > eval_img_index:
             break
-        
-       
+            
         target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input, volatile=True).cuda()
         target_var = torch.autograd.Variable(target, volatile=True).cuda()
@@ -178,22 +179,15 @@ def validate(val_loader, model, criterion, eval_img_index):
         # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
         # cv2.waitKey(0)
         if count == eval_img_index:
-            cv2.imwrite('original_img_index{}_label_{}.png'.format(count, target[0]), img_show)
-
-
-            # cv2.imshow('org_img', img)
-
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
+            
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
             
             print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
             
 
-            cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            #cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
 
             # compute output
             output = model(input_var)
@@ -204,6 +198,13 @@ def validate(val_loader, model, criterion, eval_img_index):
             label = target[0]
             print("label ", label)
             print("pred[0].cpu().numpy() ", pred[0].cpu().numpy()[0])
+
+            mask_dir = './masks'
+            if not os.path.exists(mask_dir):
+                os.makedirs(mask_dir)
+            else:
+                shutil.rmtree(mask_dir)           #removes all the subdirectories!
+                os.makedirs(mask_dir)
            
 
             if pred[0].cpu().numpy()[0] == label:
@@ -310,56 +311,7 @@ def accuracy(output, target, topk=(1,)):
     return res
 
 
-
-def evaluate_superpixels(val_data_dir):
-    global args
-    args = parser.parse_args()
-
-    args.distributed = args.world_size > 1
-    args.batch_size=1
-
-    if args.distributed:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size)
-
-    cudnn.benchmark = True
-
-    # create model
-    print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)sssssss
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-
-    val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(val_data_dir, transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ])),
-            batch_size=args.batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-
-    model.cuda()
-
-    # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-    validate(val_loader, model, criterion)
-
-# Training data
-def load_images_from_folder(folder):
-    img_filenames = []
-    labels = []
-    for filename in os.listdir(folder):      
-        label=filename.split('_')[2].split('.')[0]
-        img_filename = os.path.join(folder,filename)
-        if img_filename is not None:
-            img_filenames.append(img_filename)
-            labels.append(label)
-    return img_filenames, labels
-
-def evaluate_final_mask(val_data_dir):
+def evaluate_superpixels(val_data_dir, eval_img_index):
     global args
     args = parser.parse_args()
 
@@ -393,7 +345,55 @@ def evaluate_final_mask(val_data_dir):
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
-    validate_mask(val_loader, model, criterion)
+    validate(val_loader, model, criterion, eval_img_index)
+
+# Training data
+def load_images_from_folder(folder):
+    img_filenames = []
+    labels = []
+    for filename in os.listdir(folder):      
+        label=filename.split('_')[2].split('.')[0]
+        img_filename = os.path.join(folder,filename)
+        if img_filename is not None:
+            img_filenames.append(img_filename)
+            labels.append(label)
+    return img_filenames, labels
+
+def evaluate_final_mask(val_data_dir, val_img_index):
+    global args
+    args = parser.parse_args()
+
+    args.distributed = args.world_size > 1
+    args.batch_size=1
+
+    if args.distributed:
+        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                world_size=args.world_size)
+
+    cudnn.benchmark = True
+
+    # create model
+    print("=> using pre-trained model '{}'".format(args.arch))
+    model = models.__dict__[args.arch](pretrained=True)
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+
+    val_loader = torch.utils.data.DataLoader(
+            datasets.ImageFolder(val_data_dir, transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+
+    model.cuda()
+
+    # define loss function (criterion) and optimizer
+    criterion = nn.CrossEntropyLoss().cuda()
+    validate_mask(val_loader, model, criterion, val_img_index)
 
 
 def validate_mask(val_loader, model, criterion, val_img_index):
@@ -451,7 +451,7 @@ def validate_mask(val_loader, model, criterion, val_img_index):
             wrong_pred_count = 0
                 
             dict_pixel = get_pixel_sorted_mask_label()
-            plot_summed_heatmap(img_show, label, dict_pixel)
+            plot_summed_heatmap(val_img_index, img_show, label, dict_pixel)
             sorted_dict_values_set = sorted(set(dict_pixel.values())) 
 
             # Binary search the pixel label threshold
@@ -522,9 +522,8 @@ def validate_mask(val_loader, model, criterion, val_img_index):
                         figure = plt.gcf() # get current figure
                         figure.set_size_inches(90, 30)
                       
-                        plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(i, mask_threshold1))
-                       
-                       
+                        plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(val_img_index, mask_threshold1))
+                                          
                         plt.subplot(141),plt.imshow(cv2.cvtColor(img_show, cv2.COLOR_BGR2RGB), 'gray'),plt.title('original_img_label_{}'.format(classes_dict[target[0]]), fontsize=60)
                         plt.subplot(142),plt.imshow(mark_boundaries(img_as_float(img_show[:,:,::-1]), segments),'gray'),plt.title('Superpixel', fontsize=60)
                         
@@ -533,7 +532,7 @@ def validate_mask(val_loader, model, criterion, val_img_index):
                         
                         figure = plt.gcf() # get current figure
                         figure.set_size_inches(90, 30)
-                        plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(i, mask_threshold2))
+                        plt.savefig('result_imgs/index_{}_threshold_{}.png'.format(val_img_index, mask_threshold2))
                         # plt.show()
                         # plt.close()
                  
@@ -577,7 +576,7 @@ def get_pixel_sorted_mask_label():
    
     return dict_pixel
 
-def plot_summed_heatmap(org_img, label, dict_pixel):
+def plot_summed_heatmap(val_img_index, org_img, label, dict_pixel):
 
     result_gray_img = np.zeros((n,n))
     result_mask = np.zeros((n, n), dtype= "uint8")
@@ -606,7 +605,7 @@ def plot_summed_heatmap(org_img, label, dict_pixel):
                           
     plt.colorbar()
     plt.set_cmap('jet')
-    plt.savefig('result_imgs/index_{}_label_{}.png'.format(i, classes_dict[label]))
+    plt.savefig('result_imgs/index_{}_label_{}.png'.format(val_img_index, classes_dict[label]))
 
 
 def generate_new_mask(dict_pixel, mask_threshold):
@@ -624,15 +623,21 @@ def generate_new_mask(dict_pixel, mask_threshold):
                     result_gray_img[i][j] = dict_pixel[pixel_pos] 
                     result_mask[i][j] = 1
 
-
     return result_mask
 
 def main():
 
-    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
-    #evaluate_superpixels(val_data_dir)
+    global args
+    args = parser.parse_args()
 
-    evaluate_final_mask()
+    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+
+    for i in range(5000):
+        val_img_index = 100*i
+
+        evaluate_superpixels(val_data_dir, val_img_index)
+
+        evaluate_final_mask(val_data_dir, val_img_index)
 
 if __name__== "__main__":
   main()
