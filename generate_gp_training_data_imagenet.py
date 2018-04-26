@@ -53,8 +53,8 @@ parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
-                    metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('-b', '--batch-size', default=1, type=int,
+                    metavar='N', help='mini-batch size (default: 1)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -157,8 +157,7 @@ def validate(val_loader, model, criterion, eval_img_index):
 
     # switch to evaluate mode
     model.eval()
-
-    end = time.time()
+        
     count = 0
     for i, (input, target) in enumerate(val_loader):
         count += 1
@@ -166,19 +165,19 @@ def validate(val_loader, model, criterion, eval_img_index):
         if count > eval_img_index:
             break
             
-        target = target.cuda(async=True)
         input_var = torch.autograd.Variable(input, volatile=True).cuda()
         target_var = torch.autograd.Variable(target, volatile=True).cuda()
-
         
         img_show = input[0].numpy().copy()
         img_show = img_show.transpose( 1, 2, 0 )
+
+     
         img_show -= img_show.min()
         img_show /= img_show.max()
         img_show *= 255
         img_show = img_show.astype(np.uint8)
         # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
-        # cv2.waitKey(0)
+    #     # cv2.waitKey(0)
         if count == eval_img_index:
             
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
@@ -235,6 +234,14 @@ def validate(val_loader, model, criterion, eval_img_index):
                         
                     
                     masked_img = input[0].numpy().copy() * mask
+
+
+                    print("input_var[0].max(): ", input_var[0].max())
+                    print("input_var[0].min(): ", input_var[0].min())
+                    print("input[0].max(): ", input[0].max())
+                    print("input[0].min(): ", input[0].min())
+                    print("masked_img.max(): ", masked_img.max())
+                    print("masked_img.min(): ", masked_img.min())
                     
                     masked_img_batch = masked_img[None, :, :, :]
 
@@ -265,7 +272,7 @@ def validate(val_loader, model, criterion, eval_img_index):
                 return correct_pred_count
             else:
                 print("wrong prediction")
-                print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
+                #print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
                 
     return 0
 
@@ -346,18 +353,21 @@ def validate_mask(val_loader, model, criterion, val_img_index):
         if count > val_img_index:
             break
         
-        if count == val_img_index:
-            target = target.cuda(async=True)
-            input_var = torch.autograd.Variable(input, volatile=True).cuda()
-            target_var = torch.autograd.Variable(target, volatile=True).cuda()
+        
+        target = target.cuda(async=True)
+        input_var = torch.autograd.Variable(input, volatile=True).cuda()
+        target_var = torch.autograd.Variable(target, volatile=True).cuda()
 
-            
-            img_show = input[0].numpy().copy()
-            img_show = img_show.transpose( 1, 2, 0 )
-            img_show -= img_show.min()
-            img_show /= img_show.max()
-            img_show *= 255
-            img_show = img_show.astype(np.uint8)
+        
+        img_show = input[0].numpy().copy()
+        img_show = img_show.transpose( 1, 2, 0 )
+        img_show -= img_show.min()
+        img_show /= img_show.max()
+        img_show *= 255
+        img_show = img_show.astype(np.uint8)
+
+        if count == val_img_index:
+            #cv2.imwrite("orginal_img.png", img_show)
            
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
             
@@ -451,6 +461,7 @@ def validate_mask(val_loader, model, criterion, val_img_index):
                         plt.subplot(143),plt.imshow(mask1*255,  'gray'), plt.title("Mask threshold_{}".format(mask_threshold1),  fontsize=60)
                         plt.subplot(144),plt.imshow(cv2.cvtColor(masked_img_show1, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img_with_mask pred_{}'.format(classes_dict[pred_mask1[0].cpu().numpy()[0]]),  fontsize=60)
                         
+                        #cv2.imwrite("frog.png", masked_img_show1)
                         figure = plt.gcf() # get current figure
                         figure.set_size_inches(90, 30)
                       
@@ -565,44 +576,46 @@ def main():
     args.distributed = args.world_size > 1
     args.batch_size=1
 
-    if args.distributed:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size)
-
     val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
-
-    cudnn.benchmark = True
 
     # create model
     print("=> using pre-trained model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=True)
     model.cuda()
 
+    
+    criterion = nn.CrossEntropyLoss().cuda()
+    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+                                momentum=args.momentum,
+                                weight_decay=args.weight_decay)
+
+    cudnn.benchmark = True
+
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225])
+                                     std=[0.229, 0.224, 0.225])
+
 
     val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(val_data_dir, transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ])),
-            batch_size=args.batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
+        datasets.ImageFolder(val_data_dir, transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])),
+        batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers, pin_memory=True)
 
-    criterion = nn.CrossEntropyLoss().cuda()
 
-    for i in range(5000):
-        eval_img_index = 100*i
+   
 
-        correct_pred_count = validate(val_loader, model, criterion, eval_img_index)
-        print("correct_pred_count")
-        print(correct_pred_count)
+    eval_img_index = 1600
 
-        if correct_pred_count >0 :
+    correct_pred_count = validate(val_loader, model, criterion, eval_img_index)
+  
 
-            validate_mask(val_loader, model, criterion, eval_img_index)
+    if correct_pred_count >0 :
+
+        validate_mask(val_loader, model, criterion, eval_img_index)
 
 
 if __name__== "__main__":
