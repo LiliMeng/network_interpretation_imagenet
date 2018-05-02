@@ -108,7 +108,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
 parser.add_argument('--eval_img_index', default=400, type=int,
                     help='the index of evaluation image')
-parser.add_argument('--num_mask_samples', default=100, type=int,
+parser.add_argument('--num_mask_samples', default=10, type=int,
                     help='the number of mask samples')
 
 
@@ -117,6 +117,9 @@ if dataset == "imagenet":
     n = 224
 else:
     raise Exception("this dataset is not implemented yet")
+
+
+mode = "Train"
 
 # Training data
 def load_images_from_folder(folder):
@@ -207,9 +210,11 @@ def validate(val_loader, model, criterion, eval_img_index):
         img_show /= img_show.max()
         img_show *= 255
         img_show = img_show.astype(np.uint8)
+       
         # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
         # # cv2.waitKey(0)
         if count == eval_img_index:
+            cv2.imwrite("org_img.png", img_show)
             
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
                         
@@ -310,20 +315,20 @@ def validate(val_loader, model, criterion, eval_img_index):
                 
                 print("summed_superpixel_labels")
                 print(summed_superpixel_labels)
-                #summed_superpixel_labels_show = summed_superpixel_labels.copy()[:,:,None]
-                #print("summed_superpixel_labels_show.shape: ", summed_superpixel_labels_show.shape)
-                #summed_superpixel_labels_show -= summed_superpixel_labels_show.min()
-                #summed_superpixel_labels_show /= summed_superpixel_labels_show.max()
-                #summed_superpixel_labels_show *= 255
-                #summed_superpixel_labels_show = summed_superpixel_labels_show.astype(np.uint8)
-                #summed_labels_heatmap = cv2.applyColorMap(summed_superpixel_labels_show, cv2.COLORMAP_JET)
+                summed_superpixel_labels_show = summed_superpixel_labels.copy()[:,:,None]
+                print("summed_superpixel_labels_show.shape: ", summed_superpixel_labels_show.shape)
+                summed_superpixel_labels_show -= summed_superpixel_labels_show.min()
+                summed_superpixel_labels_show /= summed_superpixel_labels_show.max()
+                summed_superpixel_labels_show *= 255
+                summed_superpixel_labels_show = summed_superpixel_labels_show.astype(np.uint8)
+                summed_labels_heatmap = cv2.applyColorMap(summed_superpixel_labels_show, cv2.COLORMAP_JET)
                 #cv2.imwrite("summed_superpixel_labels.png", summed_labels_heatmap)
                 #cv2.imshow("summed_superpixel_labels", summed_labels_heatmap)
 
                 #cv2.waitKey(0)
                 #cv2.destroyAllWindows()
 
-                return summed_superpixel_labels
+                return summed_superpixel_labels, summed_labels_heatmap
             else:
                 print("wrong prediction")
                 #print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
@@ -448,57 +453,11 @@ def train(train_x, train_y, model, optimizer, mll):
     torch.save(model.state_dict(), './gp_saved_checkpoints/imagenet100_gp_reg_checkpoint.pth.tar')
 
 
-def train(train_x, train_y, model, optimizer, mll):
-    num_training_iterations = 20
-    for i in range(num_training_iterations):
-        
-        batch_training = False
-
-        if batch_training == True:
-            train_loss = 0
-            train_batch_size = 100000
-            full_output = []
-            for j in range(0, train_x.shape[0], train_batch_size):
-                train_indices = range(train_x.shape[0])[j: j+ train_batch_size]
-
-                train_batch_x = train_x[train_indices]
-                train_batch_y = train_y[train_indices]
-
-                # zero back propped gradients
-                optimizer.zero_grad()
-
-                # Make  prediction
-                output_batch = model(train_batch_x)
-
-                # Calc loss and use to compute derivatives
-                loss = -mll(output_batch, train_batch_y)
-                loss.backward()
-                optimizer.step()
-                train_loss += loss.data[0] * len(train_batch_x)
-            print('Train Epoch: %d\tLoss: %.6f' % (i, train_loss / train_x.shape[0]))
-
-        else:
-
-            # zero back propped gradients
-            optimizer.zero_grad()
-            # Make  prediction
-            output = model(train_x)
-
-            # Calc loss and use to compute derivatives
-            loss = -mll(output, train_y)
-
-            print('Iter %d/%d - Loss: %.3f   log_lengthscale: %.3f' % (
-                i + 1, num_training_iterations, loss.data[0],
-                model.covar_module.base_kernel_module.log_lengthscale.data.squeeze()[0],
-            ))
-      
-
-    torch.save(model.state_dict(), './gp_saved_checkpoints/imagenet1000_gp_reg_checkpoint.pth.tar')
 
 def eval_superpixels(model, likelihood):
 
     # load model
-    model.load_state_dict(torch.load('./gp_saved_checkpoints/imagenet1000_gp_reg_checkpoint.pth.tar'))
+    model.load_state_dict(torch.load('./gp_saved_checkpoints/imagenet10_gp_reg_checkpoint.pth.tar'))
     # Set model and likelihood into eval mode
     model.eval()
     likelihood.eval()
@@ -513,7 +472,7 @@ def eval_superpixels(model, likelihood):
     print(test_x.shape)
 
     test_batch_size = 896
-    full_predictions = []
+    full_predictions_mean = []
     full_predictions_var = []
     for i in range(0, test_x.shape[0], test_batch_size):
         test_indices = range(test_x.shape[0])[i: i+test_batch_size]
@@ -524,129 +483,75 @@ def eval_superpixels(model, likelihood):
         # Make binary predictions by warmping the model output through a Bernoulli likelihood
         with gpytorch.beta_features.fast_pred_var():
             predictions = likelihood(model(test_batch_x))
-         
-
-            predictions_np = predictions.mean().cpu().data.numpy()
+        
+            mean_pred_np = predictions.mean().cpu().data.numpy()
       
             lower, upper = predictions.confidence_region()
-            covar_pred = predictions.covar().cpu()
+            var_pred_np = predictions.var().cpu().data.numpy()
+            print("var_pred_np")
+            print(var_pred_np)
 
-            # print("lower")
-            # print(lower)
-            # print("upper")
-            # print(upper)
-            for i in range(n*n):
-                print("lower: ", lower[i])
-                print("upper: ", upper[i])
-                print("covar_pred: ", covar_pred[i])
-            full_predictions.append(predictions_np)
-           # full_predictions_var.append(predictions_np_var)
+            full_predictions_mean.append(mean_pred_np)
+            full_predictions_var.append(var_pred_np)
 
-    full_predictions = np.asarray(full_predictions)
-    full_predictions = np.concatenate(full_predictions, axis=0)
+    full_predictions_mean = np.concatenate(np.asarray(full_predictions_mean), axis=0)
 
-   # full_predictions_var = np.concatenate(np.asarray(full_predictions_var), axis=0)
-    print(full_predictions.shape)
+    full_predictions_var = np.concatenate(np.asarray(full_predictions_var), axis=0)
+    
+    print("full_predictions_mean.shape: ", full_predictions_mean.shape)
+    print("full_predictions_var.shape: ", full_predictions_var.shape)
 
-    return full_predictions #, full_predictions_var
+    return full_predictions_mean, full_predictions_var
 
 
-def plot_result(predictions):
-
-    mask_filenames, train_mask_labels = load_images_from_folder('./masks')
-
-    train_x = []
-    train_y = []
-    pixel_mask_counts = []
-    dict_pixel = {}
-
-    for i in range(len(mask_filenames)):
-        img = cv2.imread(mask_filenames[i] ,0)
-        mask_label = int(train_mask_labels[i])
-        print('has read ', i)
-        for j in range(n):
-            for k in range(n):
-                pixel_position = (j, k)        
-                if img[j][k] == 255:
-                    if pixel_position in dict_pixel:
-                        dict_pixel[pixel_position] += mask_label
-                    else:
-                        dict_pixel[pixel_position]  = mask_label
-
-    result_gray_img = np.zeros((n,n))
-    for i in range(n):
-        for j in range(n):
-            pixel_pos = (i,j)
-            if pixel_pos in dict_pixel:
-                result_gray_img[i][j] = dict_pixel[pixel_pos]
+def plot_result(train_heatmap, predictions_mean, predictions_var):
 
 
-    result_gray_img_show = result_gray_img.copy()
-
-    result_gray_img_show = result_gray_img_show -result_gray_img_show.min()
-    result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
-    result_gray_img_show *= 255
-
-
-    result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
-    result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
-
-    # # cv2.imwrite('./weighted_mask/weighted_mask_heatmap.png', result_heatmap)
-    cv2.imshow("result_heatmap", result_heatmap)
-
-    org_test_gray_img = np.zeros((n,n))
+    org_test_gray_img_mean = np.zeros((n,n))
 
     for i in range(n):
         for j in range(n):
-            org_test_gray_img[i][j] = predictions[i*n+j]
+            org_test_gray_img_mean[i][j] = predictions_mean[i*n+j]
 
-           
-   
-    test_gray_img = org_test_gray_img.copy()
-    test_gray_img -= test_gray_img.min()
-    test_gray_img /= test_gray_img.max()
-    test_gray_img *= 255
+    test_gray_img_mean = org_test_gray_img_mean.copy()
+    test_gray_img_mean -= test_gray_img_mean.min()
+    test_gray_img_mean /= test_gray_img_mean.max()
+    test_gray_img_mean *= 255
 
 
-    test_gray_img = np.array(test_gray_img, dtype = np.uint8)
+    test_heatmap_mean = cv2.applyColorMap(np.array(test_gray_img_mean, dtype = np.uint8), cv2.COLORMAP_JET )
 
-  
-    test_heatmap = cv2.applyColorMap(test_gray_img, cv2.COLORMAP_JET )
+    org_test_gray_img_var = np.zeros((n,n))
 
-    cv2.imshow("test_heatmap", test_heatmap)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
+    for i in range(n):
+        for j in range(n):
+            org_test_gray_img_var[i][j] = predictions_var[i*n+j]
+
+    test_gray_img_var = org_test_gray_img_var.copy()
+    test_gray_img_var -= test_gray_img_var.min()
+    test_gray_img_var /= test_gray_img_var.max()
+    test_gray_img_var *= 255
 
 
-    org_img = cv2.imread('original_img_index2_label_0.png')
-   
+    test_heatmap_var = cv2.applyColorMap(np.array(test_gray_img_var, dtype = np.uint8), cv2.COLORMAP_JET )
 
 
-    # final_masked_img = org_img.transpose(2,0,1) * org_test_gray_img 
-    # final_masked_img = final_masked_img.transpose(1,2,0)
-    # final_masked_img -= final_masked_img.min()
-    # final_masked_img /= final_masked_img.max()
-    # final_masked_img *= 255
-    # final_masked_img = np.array(final_masked_img, dtype = np.uint8)
-
+    org_img = cv2.imread('org_img.png')
 
      # Initialize figiure an axis
     f, observed_ax = plt.subplots(1, 1, figsize=(4, 3))
     # # Test points are 100x100 grid of [0,1]x[0,1] with spacing of 1/99
 
    
-    plt.subplot(131),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
+    plt.subplot(141),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Original img')
 
-    plt.subplot(132),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
+    plt.subplot(142),plt.imshow(train_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
 
-
-    #plt.subplot(122),plt.imshow(result_gray_img[:,:,::-1],'gray'),plt.title('Summed label training heatmap')
+    plt.subplot(143),plt.imshow(cv2.cvtColor(test_heatmap_mean, cv2.COLOR_BGR2RGB),'gray'),plt.title('Pred mask mean heatmap')
+    plt.subplot(144),plt.imshow(cv2.cvtColor(test_heatmap_var, cv2.COLOR_BGR2RGB),'gray'),plt.title('Pred mask variance heatmap')
    
-    plt.subplot(133),plt.imshow(cv2.cvtColor(test_heatmap, cv2.COLOR_BGR2RGB),'gray'),plt.title('Predicted mask heatmap')
-    #plt.subplot(144),plt.imshow(cv2.cvtColor(final_masked_img, cv2.COLOR_BGR2RGB),'gray'),plt.title('Org_img with predicted mask')
-
+   
     plt.colorbar()
-    #plt.set_cmap('Reds')
     plt.set_cmap('jet')
     plt.show()
 
@@ -690,16 +595,24 @@ def main():
 
     eval_img_index = 300
 
-    summed_superpixel_labels = validate(val_loader, model, criterion, eval_img_index)
+    summed_superpixel_labels, summed_superpixel_labels_heatmap = validate(val_loader, model, criterion, eval_img_index)
 
+    train_x = []
+    train_y = []
     for i in range(n):
         for j in range(n):
-            pixel_pos = (i,j)
-            if pixel_pos in dict_pixel:
                 train_x.append([i, j])
                 train_y.append(summed_superpixel_labels[i][j])
 
+
+
+    train_x = Variable(torch.FloatTensor(np.asarray(train_x))).cuda()
+    train_y = Variable(torch.FloatTensor(np.asarray(train_y))).cuda()
     
+    print("train_x.shape: ", train_x.shape)
+    print("train_y.shape: ", train_y.shape)
+
+
     likelihood = GaussianLikelihood().cuda()
 
     model = GPRegressionModel(train_x.data, train_y.data, likelihood).cuda()
@@ -720,14 +633,13 @@ def main():
         # n_data refers to the amount of training data
         # "Loss" for GPs - the marginal log likelihood
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
-
-       
+ 
         train(train_x, train_y, model, optimizer, mll)
 
-    elif mode == 'Eval':
+    #elif mode == 'Eval':
         print("start to test the model")
-        predictions = eval_superpixels(model, likelihood)
-        plot_result(predictions)
+        predictions_mean, predictions_var = eval_superpixels(model, likelihood)
+        plot_result(summed_superpixel_labels_heatmap, predictions_mean, predictions_var)
     else:
         raise Exception("No such mode")
 
