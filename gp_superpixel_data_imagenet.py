@@ -392,7 +392,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(constant_bounds=[-1e-5,1e-5])
         # GridInterpolationKernel over an ExactGP
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=30,
+        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=10000,
                                                     grid_bounds=[(0, n), (0, n)])
         # Register the log lengthscale as a trainable parametre
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5,6))
