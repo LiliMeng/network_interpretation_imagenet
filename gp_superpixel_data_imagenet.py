@@ -108,7 +108,7 @@ parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
 parser.add_argument('--eval_img_index', default=400, type=int,
                     help='the index of evaluation image')
-parser.add_argument('--num_mask_samples', default=10, type=int,
+parser.add_argument('--num_mask_samples', default=100, type=int,
                     help='the number of mask samples')
 
 
@@ -199,8 +199,9 @@ def validate(val_loader, model, criterion, eval_img_index):
         if count > eval_img_index:
             break
             
-        input_var = torch.autograd.Variable(input, volatile=True).cuda()
-        target_var = torch.autograd.Variable(target, volatile=True).cuda()
+        input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
+        input_var.requires_grad = True
+        target_var = torch.autograd.Variable(target).cuda()
         
         img_show = input[0].numpy().copy()
         img_show = img_show.transpose( 1, 2, 0 )
@@ -230,6 +231,24 @@ def validate(val_loader, model, criterion, eval_img_index):
             # compute output
             output = model(input_var)
             loss = criterion(output, target_var)
+
+            """
+            # Oracle
+            loss.backward()
+         
+            observe_grad = input_var.grad
+
+            print("observe_grad")
+            print(input_var.grad, torch.__version__)
+            print(observe_grad)
+
+
+            _, index = torch.topk(torch.sum(observe_grad, dim=1), 50)
+
+            print("index")
+            print(index)
+
+            """
 
 
             pred = output.data.max(1, keepdim=True)[1]
@@ -392,7 +411,7 @@ class GPRegressionModel(gpytorch.models.ExactGP):
         self.mean_module = ConstantMean(constant_bounds=[-1e-5,1e-5])
         # GridInterpolationKernel over an ExactGP
         self.base_covar_module = RBFKernel(log_lengthscale_bounds=(-5, 6))
-        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=10000,
+        self.covar_module = GridInterpolationKernel(self.base_covar_module, grid_size=300,
                                                     grid_bounds=[(0, n), (0, n)])
         # Register the log lengthscale as a trainable parametre
         self.register_parameter('log_outputscale', nn.Parameter(torch.Tensor([0])), bounds=(-5,6))
@@ -450,7 +469,7 @@ def train(train_x, train_y, model, optimizer, mll):
             ))
       
 
-    torch.save(model.state_dict(), './gp_saved_checkpoints/imagenet100_gp_reg_checkpoint.pth.tar')
+    torch.save(model.state_dict(), './gp_saved_checkpoints/imagenet10_gp_reg_checkpoint.pth.tar')
 
 
 
