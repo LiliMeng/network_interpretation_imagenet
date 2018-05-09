@@ -3,9 +3,18 @@ import cv2
 import numpy as np
 
 def superpixel_IOU(img1, img2):
+    """
+    The intersection of unmasked area for two input mask images
+    img1, img2 224x224 gray image
+
+    return: the percentage of intersction of unmasked area
+    """
+    assert(img1.shape==img2.shape)
 
     n = img1.shape[0]
+
     white_intersect_count = 0
+
     for i in range(n):
       for j in range(n):
         if img1[i][j]==img2[i][j]==255:
