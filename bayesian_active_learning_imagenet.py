@@ -303,6 +303,14 @@ def main():
 
     print("sample_loss_value: ", sample_loss_value)
 
+    bounds = np.array([[-4, 1], [-4, 1]])
+
+    xp, yp = bayesian_optimisation(n_iters=30, 
+                               sample_loss=sample_loss_value, 
+                               bounds=bounds,
+                               n_pre_samples=3,
+                               random_search=100000)
+
     time_duration = time.time()-start_time
 
     print("time duration is: ", time_duration) 
