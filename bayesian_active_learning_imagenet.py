@@ -180,6 +180,8 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index):
                 
                 for i in range(args.num_mask_samples): 
                     correct_label_flag = False
+                    print("np.unique(segments)")
+                    print(np.unique(segments))
                     total_num_segments = len(np.unique(segments))
                     num_conse_superpixels = int(0.4*total_num_segments)
                     print("total_num_segments: ", total_num_segments)
@@ -241,25 +243,11 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index):
                 #print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
                 return -1, False       
 
-def sample_loss(val_loader, model, criterion, eval_img_index, superpixel_percent):
+def sample_loss(params):
     """
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    max_prob, correct_pred_flag = validate_nueral_network(val_loader, model, criterion, eval_img_index)
-    
-    regularizer = 0.01
-    sample_loss_value = 0 
-    if max_prob!=-1:
-        if correct_pred_flag == True:
-            
-            sample_loss_value = max_prob + regularizer*superpixel_percent
-
-    return sample_loss_value
-    
-
-def main():
-
     start_time = time.time()
     global args
     args = parser.parse_args()
@@ -299,14 +287,25 @@ def main():
     eval_img_index = 1600
     superpixel_percent = 0.4
 
-    sample_loss_value = sample_loss(val_loader, model, criterion, eval_img_index, superpixel_percent)
+    max_prob, correct_pred_flag = validate_nueral_network(val_loader, model, criterion, eval_img_index)
+    
+    regularizer = 0.01
+    sample_loss_value = 0 
+    if max_prob!=-1:
+        if correct_pred_flag == True:
+            
+            sample_loss_value = max_prob + regularizer*superpixel_percent
 
-    print("sample_loss_value: ", sample_loss_value)
+    return sample_loss_value
+    
 
+def main():
+
+    
     bounds = np.array([[-4, 1], [-4, 1]])
 
     xp, yp = bayesian_optimisation(n_iters=30, 
-                               sample_loss=sample_loss_value, 
+                               sample_loss=sample_loss, 
                                bounds=bounds,
                                n_pre_samples=3,
                                random_search=100000)

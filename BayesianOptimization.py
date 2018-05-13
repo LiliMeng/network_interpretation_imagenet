@@ -126,6 +126,8 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
     y_list = []
 
     n_params = bounds.shape[0]
+    print("n_params")
+    print(n_params)
 
     if x0 is None:
         for params in np.random.uniform(bounds[:, 0], bounds[:, 1], (n_pre_samples, bounds.shape[0])):
@@ -143,7 +145,7 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
     if gp_params is not None:
         model = gp.GaussianProcessRegressor(**gp_params)
     else:
-        kernel = JaccardDistRBF()
+        kernel = gp.kernels.RBF()
         model = gp.GaussianProcessRegressor(kernel=kernel,
                                             alpha=alpha,
                                             n_restarts_optimizer=10,
