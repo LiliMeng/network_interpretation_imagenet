@@ -298,6 +298,18 @@ def sample_loss(params):
 
     return sample_loss_value
 
+def load_images_from_folder(folder):
+    img_filenames = []
+    labels = []
+    for filename in os.listdir(folder):      
+        label=filename.split('_')[2].split('.')[0]
+        img_filename = os.path.join(folder,filename)
+        if img_filename is not None:
+            img_filenames.append(img_filename)
+            labels.append(label)
+    return img_filenames, labels
+    
+
 def plot_summed_heatmap(val_img_index):
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
@@ -358,7 +370,7 @@ def plot_summed_heatmap(val_img_index):
 def main():
 
     start_time = time.time()
-    
+
     bounds = np.array([[-4, 1], [-4, 1]])
 
     xp, yp = bayesian_optimisation(n_iters=10, 
