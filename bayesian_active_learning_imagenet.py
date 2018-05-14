@@ -232,13 +232,13 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index):
                         correct_label_flag = True
 
                         return max_prob, correct_label_flag
-                    else:
+                    else:                  
                         wrong_pred_count+=1
                         print("wrong_pred_count: ", wrong_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask*255)
                         
                         return max_prob, correct_label_flag
-            else:
+            else: 
                 print("wrong prediction")
                 #print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
                 return -1, False       
@@ -248,7 +248,7 @@ def sample_loss(params):
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    start_time = time.time()
+    
     global args
     args = parser.parse_args()
 
@@ -291,20 +291,77 @@ def sample_loss(params):
     
     regularizer = 0.01
     sample_loss_value = 0 
-    if max_prob!=-1:
-        if correct_pred_flag == True:
+ 
+    if correct_pred_flag == True:
             
-            sample_loss_value = max_prob + regularizer*superpixel_percent
+        sample_loss_value = max_prob #+ regularizer*superpixel_percent
 
     return sample_loss_value
+
+def plot_summed_heatmap(val_img_index):
+    mask_filenames, train_mask_labels = load_images_from_folder('./masks')
+
+    train_x = []
+    train_y = []
+    pixel_mask_counts = []
+    dict_pixel = {}
+
+    correct_pred_count = 0
+    for i in range(len(mask_filenames)):
+        img = cv2.imread(mask_filenames[i] ,0)
+        mask_label = int(train_mask_labels[i])
+        if mask_label == 1:
+            correct_pred_count +=1
+        print('has read ', i)
+        for j in range(n):
+            for k in range(n):
+                pixel_position = (j, k)        
+                if img[j][k] == 255:
+                    if pixel_position in dict_pixel:
+                        dict_pixel[pixel_position] += mask_label
+                    else:
+                        dict_pixel[pixel_position]  = mask_label
+   
+    print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
+
+    result_gray_img = np.zeros((n,n))
+    result_mask = np.zeros((n, n), dtype= "uint8")
+    for i in range(n):
+        for j in range(n):
+            pixel_pos = (i,j)
+            if pixel_pos in dict_pixel:
+                result_gray_img[i][j] = dict_pixel[pixel_pos] 
+                
+
+    result_gray_img_show = result_gray_img.copy()
+
+    result_gray_img_show = result_gray_img_show - result_gray_img_show.min()
+    result_gray_img_show = result_gray_img_show/result_gray_img_show.max()
+    result_gray_img_show *= 255
+
+    result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
+    result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
+        
+    #plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Org_img_with_label_{}'.format(classes_dict[label]), fontsize=60)
+
+    plt.subplot(111),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap', fontsize=60)
+    
+    #figure = plt.gcf() # get current figure
+    #figure.set_size_inches(80, 30)
+                          
+    #plt.colorbar()
+    #plt.set_cmap('jet')
+    #plt.savefig('result_imgs/index_{}_label_{}.png'.format(val_img_index, classes_dict[label]))
+
     
 
 def main():
 
+    start_time = time.time()
     
     bounds = np.array([[-4, 1], [-4, 1]])
 
-    xp, yp = bayesian_optimisation(n_iters=30, 
+    xp, yp = bayesian_optimisation(n_iters=10, 
                                sample_loss=sample_loss, 
                                bounds=bounds,
                                n_pre_samples=3,
@@ -313,7 +370,7 @@ def main():
     time_duration = time.time()-start_time
 
     print("time duration is: ", time_duration) 
-
+    plot_summed_heatmap(1600)
     
 
 if __name__== "__main__":
