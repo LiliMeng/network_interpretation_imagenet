@@ -605,19 +605,12 @@ def main():
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
+    eval_img_index = 300
 
-   
+    summed_superpixel_labels, summed_superpixel_labels_heatmap = validate(val_loader, model, criterion, eval_img_index)
 
-    eval_img_index = 1600
 
-    correct_pred_count = validate(val_loader, model, criterion, eval_img_index)
   
-
-    if correct_pred_count >0 :
-
-        validate_mask(val_loader, model, criterion, eval_img_index)
-
-
 if __name__== "__main__":
   main()
 

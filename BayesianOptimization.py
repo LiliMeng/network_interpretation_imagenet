@@ -137,9 +137,14 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
     #        x_list.append(params)
      #       y_list.append(sample_loss(params))
 
-    for params in range(1, 44):
+    if x0 is None:
+        param=randint(1, 44):
         x_list.append(params)
         y_list.append(sample_loss(params))
+    else:
+        for params in x0:
+            x_list.append(params)
+            y_list.append(sample_loss(params))
 
     xp = np.array(x_list)
     yp = np.array(y_list)
