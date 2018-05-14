@@ -107,7 +107,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def validate_nueral_network(val_loader, model, criterion, eval_img_index):
+def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_iter, firstIndex):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -186,7 +186,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index):
                     num_conse_superpixels = int(0.4*total_num_segments)
                     print("total_num_segments: ", total_num_segments)
                     print("num_conse_superpixels: ", num_conse_superpixels)
-                    firstIndex= randint(1, total_num_segments-num_conse_superpixels)
+                    #firstIndex= randint(1, total_num_segments-num_conse_superpixels)
                    
 
                     random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
@@ -228,7 +228,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index):
                     if pred_mask[0].cpu().numpy()[0] == target[0]:
                         correct_pred_count+=1
                         print("correct_pred_count: ", correct_pred_count)
-                        cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 1), mask*255) 
+                        cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
                         correct_label_flag = True
 
                         return max_prob, correct_label_flag
@@ -248,7 +248,10 @@ def sample_loss(params):
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    
+    firstIndex = params
+
+    bo_iter = randint(1, 1000)
+
     global args
     args = parser.parse_args()
 
@@ -287,7 +290,7 @@ def sample_loss(params):
     eval_img_index = 1600
     superpixel_percent = 0.4
 
-    max_prob, correct_pred_flag = validate_nueral_network(val_loader, model, criterion, eval_img_index)
+    max_prob, correct_pred_flag = validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_iter, firstIndex)
     
     regularizer = 0.01
     sample_loss_value = 0 
@@ -308,7 +311,7 @@ def load_images_from_folder(folder):
             img_filenames.append(img_filename)
             labels.append(label)
     return img_filenames, labels
-    
+
 
 def plot_summed_heatmap(val_img_index):
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
