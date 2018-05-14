@@ -8,6 +8,7 @@ import sklearn.gaussian_process as gp
 
 from scipy.stats import norm
 from scipy.optimize import minimize
+from random import *
 
 def expected_improvement(x, gaussian_process, evaluated_loss, greater_is_better=False, n_params=1):
     """ expected_improvement
@@ -138,7 +139,7 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
      #       y_list.append(sample_loss(params))
 
     if x0 is None:
-        param=randint(1, 44):
+        params = randint(1, 44)
         x_list.append(params)
         y_list.append(sample_loss(params))
     else:
@@ -165,7 +166,8 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
 
         # Sample next hyperparameter
         if random_search:
-            x_random = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(random_search, n_params))
+            x_random = randint(1, 44)
+            #x_random = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(random_search, n_params))
             ei = -1 * expected_improvement(x_random, model, yp, greater_is_better=True, n_params=n_params)
             next_sample = x_random[np.argmax(ei), :]
         else:
@@ -173,7 +175,8 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
 
         # Duplicates will break the GP. In case of a duplicate, we will randomly sample a next query point.
         if np.any(np.abs(next_sample - xp) <= epsilon):
-            next_sample = np.random.uniform(bounds[:, 0], bounds[:, 1], bounds.shape[0])
+            #next_sample = np.random.uniform(bounds[:, 0], bounds[:, 1], bounds.shape[0])
+            next_sample = randint(1, 44)
 
         # Sample loss for new set of parameters
         cv_score = sample_loss(next_sample)
