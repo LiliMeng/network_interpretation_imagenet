@@ -78,10 +78,10 @@ def sample_next_hyperparameter(acquisition_func, gaussian_process, evaluated_los
     best_acquisition_value = 1
     n_params = bounds.shape[0]
 
-    for starting_point in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, n_params)):
-
+    #for starting_point in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, n_params)):
+    for starting_point in range(1,44):
         res = minimize(fun=acquisition_func,
-                       x0=starting_point.reshape(1, -1),
+                       x0=[starting_point], #.reshape(1, -1),
                        bounds=bounds,
                        method='L-BFGS-B',
                        args=(gaussian_process, evaluated_loss, greater_is_better, n_params))
@@ -93,7 +93,7 @@ def sample_next_hyperparameter(acquisition_func, gaussian_process, evaluated_los
     return best_x
 
 
-def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5,
+def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bounds, x0=None, n_pre_samples=5,
                           gp_params=None, random_search=False, alpha=1e-5, epsilon=1e-7):
     """ bayesian_optimisation
 
@@ -129,24 +129,18 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
     n_params = bounds.shape[0]
    
 
-    #if x0 is None:
-    #    for params in np.random.uniform(bounds[:, 0], bounds[:, 1], (n_pre_samples, bounds.shape[0])):
-    #        x_list.append(params)
-    #        y_list.append(sample_loss(params))
-    #else:
-    #    for params in x0:
-    #        x_list.append(params)
-     #       y_list.append(sample_loss(params))
-
     if x0 is None:
-        params = randint(1, 44)
-        x_list.append(params)
-        y_list.append(sample_loss(params))
+        #for params in np.random.uniform(bounds[:, 0], bounds[:, 1], (n_pre_samples, bounds.shape[0])):
+        for i in range(n_pre_samples):
+            params=[randint(bounds[0], bounds[1])]
+            x_list.append(params)
+            y_list.append(sample_loss(params, val_loader, model, criterion))
     else:
         for params in x0:
             x_list.append(params)
-            y_list.append(sample_loss(params))
+            y_list.append(sample_loss(params, val_loader, model, criterion))
 
+   
     xp = np.array(x_list)
     yp = np.array(y_list)
 
@@ -162,11 +156,15 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
 
     for n in range(n_iters):
 
+        print("xp")
+        print(xp)
+        print("yp")
+        print(yp)
         model.fit(xp, yp)
 
         # Sample next hyperparameter
         if random_search:
-            x_random = randint(1, 44)
+            x_random = [randint(1, 44),1]
             #x_random = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(random_search, n_params))
             ei = -1 * expected_improvement(x_random, model, yp, greater_is_better=True, n_params=n_params)
             next_sample = x_random[np.argmax(ei), :]
@@ -176,8 +174,7 @@ def bayesian_optimisation(n_iters, sample_loss, bounds, x0=None, n_pre_samples=5
         # Duplicates will break the GP. In case of a duplicate, we will randomly sample a next query point.
         if np.any(np.abs(next_sample - xp) <= epsilon):
             #next_sample = np.random.uniform(bounds[:, 0], bounds[:, 1], bounds.shape[0])
-            next_sample = randint(1, 44)
-
+            next_sample = [randint(1, 44)]
         # Sample loss for new set of parameters
         cv_score = sample_loss(next_sample)
 

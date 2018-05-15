@@ -164,10 +164,6 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
             mask_dir = './masks'
             if not os.path.exists(mask_dir):
                 os.makedirs(mask_dir)
-            else:
-                shutil.rmtree(mask_dir)           #removes all the subdirectories!
-                os.makedirs(mask_dir)
-           
 
             if pred[0].cpu().numpy()[0] == label:
                 print("correct prediction, index_{} , label_{}".format(count, classes_dict[label]))
@@ -180,8 +176,6 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                 
                 for i in range(args.num_mask_samples): 
                     correct_label_flag = False
-                    print("np.unique(segments)")
-                    print(np.unique(segments))
                     total_num_segments = len(np.unique(segments))
                     num_conse_superpixels = int(0.4*total_num_segments)
                     print("total_num_segments: ", total_num_segments)
@@ -229,13 +223,15 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                         correct_pred_count+=1
                         print("correct_pred_count: ", correct_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
+                        cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter,1), masked_img_show)
                         correct_label_flag = True
 
                         return max_prob, correct_label_flag
                     else:                  
                         wrong_pred_count+=1
                         print("wrong_pred_count: ", wrong_pred_count)
-                        cv2.imwrite('./masks/mask_{}_{}.png'.format(i, 0), mask*255)
+                        cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 0), mask*255)
+                        cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter, 0), masked_img_show)
                         
                         return max_prob, correct_label_flag
             else: 
@@ -243,49 +239,16 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                 #print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
                 return -1, False       
 
-def sample_loss(params):
+def sample_loss(params, val_loader, model, criterion):
     """
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    firstIndex = params
+    print("params")
+    print(params)
+    firstIndex = params[0]
 
-    bo_iter = randint(1, 1000)
-
-    global args
-    args = parser.parse_args()
-
-    args.distributed = args.world_size > 1
-    args.batch_size=1
-
-    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
-
-    # create model
-    print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
-    model.cuda()
-
-    
-    criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
-
-    cudnn.benchmark = True
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(val_data_dir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+    bo_iter = params[0]
 
     eval_img_index = 1600
     superpixel_percent = 0.4
@@ -356,35 +319,86 @@ def plot_summed_heatmap(val_img_index):
 
     result_gray_img_show = np.array(result_gray_img_show, dtype = np.uint8)
     result_heatmap = cv2.applyColorMap(result_gray_img_show, cv2.COLORMAP_JET)
-        
-    #plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Org_img_with_label_{}'.format(classes_dict[label]), fontsize=60)
 
-    plt.subplot(111),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap', fontsize=60)
-    
+    org_img = cv2.imread('org_img.png')
+        
+    plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Org_img')#, fontsize=60)
+
+    plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')#, fontsize=60)
+    plt.set_cmap('jet')
+    plt.colorbar()
+    plt.show()
     #figure = plt.gcf() # get current figure
     #figure.set_size_inches(80, 30)
                           
-    #plt.colorbar()
-    #plt.set_cmap('jet')
+    
+    
     #plt.savefig('result_imgs/index_{}_label_{}.png'.format(val_img_index, classes_dict[label]))
 
     
 
 def main():
 
+   
     start_time = time.time()
 
-    bounds = np.array([[-4, 1], [-4, 1]])
+    global args
+    args = parser.parse_args()
 
+    args.distributed = args.world_size > 1
+    args.batch_size=1
+
+    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+
+    # create model
+    print("=> using pre-trained model '{}'".format(args.arch))
+    model = models.__dict__[args.arch](pretrained=True)
+    model.cuda()
+
+    
+    criterion = nn.CrossEntropyLoss().cuda()
+    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+                                momentum=args.momentum,
+                                weight_decay=args.weight_decay)
+
+    cudnn.benchmark = True
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
+
+    val_loader = torch.utils.data.DataLoader(
+        datasets.ImageFolder(val_data_dir, transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])),
+        batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers, pin_memory=True)
+
+    # We need the cartesian combination of these two vectors
+    #param_grid = np.array([C for C in range(44)])
+
+    #real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
+
+    #plt.figure()
+    #plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
+    #plt.show()
+
+    bounds = np.asarray([0, 44])
     xp, yp = bayesian_optimisation(n_iters=10, 
-                               sample_loss=sample_loss, 
-                               bounds=bounds,
-                               n_pre_samples=3,
-                               random_search=100000)
+                                sample_loss=sample_loss, 
+                                val_loader = val_loader,
+                                model = model,
+                                criterion = criterion,
+                                bounds=bounds,
+                                n_pre_samples=3,
+                                random_search=False)
 
     time_duration = time.time()-start_time
 
-    print("time duration is: ", time_duration) 
+    #print("time duration is: ", time_duration) 
     plot_summed_heatmap(1600)
     
 
