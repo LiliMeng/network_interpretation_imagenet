@@ -127,7 +127,8 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
     y_list = []
 
     n_params = bounds.shape[0]
-   
+    
+
 
     if x0 is None:
         #for params in np.random.uniform(bounds[:, 0], bounds[:, 1], (n_pre_samples, bounds.shape[0])):
@@ -140,7 +141,8 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
             x_list.append(params)
             y_list.append(sample_loss(params, val_loader, model, criterion))
 
-   
+    print("x0")
+    print(x0)
     xp = np.array(x_list)
     yp = np.array(y_list)
 
@@ -148,7 +150,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
     if gp_params is not None:
         model = gp.GaussianProcessRegressor(**gp_params)
     else:
-        kernel = gp.kernels.RBF()
+        kernel = JaccardDistRBF()
         model = gp.GaussianProcessRegressor(kernel=kernel,
                                             alpha=alpha,
                                             n_restarts_optimizer=10,
@@ -156,10 +158,6 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
 
     for n in range(n_iters):
 
-        print("xp")
-        print(xp)
-        print("yp")
-        print(yp)
         model.fit(xp, yp)
 
         # Sample next hyperparameter
@@ -277,8 +275,9 @@ class JaccardDistRBF():
             if eval_gradient:
                 raise ValueError(
                     "Gradient can only be evaluated when Y is None.")
-            dists = cdist(X / length_scale, Y / length_scale,
-                          metric='sqeuclidean')
+            #dists = cdist(X / length_scale, Y / length_scale,
+             #S             metric='sqeuclidean')
+            dists = Jaccard_distance(X, Y)
             K = np.exp(-.5 * dists)
 
         if eval_gradient:
