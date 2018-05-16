@@ -213,17 +213,6 @@ def Jaccard_distance(img1, img2):
     print("Jaccard_distance: ", Jaccard_distance)
     return Jaccard_distance
 
-
-def _check_length_scale(X, length_scale):
-    length_scale = np.squeeze(length_scale).astype(float)
-    if np.ndim(length_scale) > 1:
-        raise ValueError("length_scale cannot be of dimension greater than 1")
-    if np.ndim(length_scale) == 1 and X.shape[1] != length_scale.shape[0]:
-        raise ValueError("Anisotropic kernel must have the same number of "
-                         "dimensions as data (%d!=%d)"
-                         % (length_scale.shape[0], X.shape[1]))
-    return length_scale
-
 class JaccardDistRBF(gp.kernels.RBF):
 
     """
@@ -277,7 +266,6 @@ class JaccardDistRBF(gp.kernels.RBF):
             is True.
         """
         X = np.atleast_2d(X)
-        length_scale = _check_length_scale(X, self.length_scale)
         if Y is None:
             #dists = pdist(X / length_scale, metric='sqeuclidean')
             dists = Jaccard_distance(X, X)
