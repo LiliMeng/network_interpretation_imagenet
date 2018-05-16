@@ -214,8 +214,24 @@ def Jaccard_distance(img1, img2):
     return Jaccard_distance
 
 
-class JaccardDistRBF():
-    """Radial-basis function kernel (aka squared-exponential kernel).
+def _check_length_scale(X, length_scale):
+    length_scale = np.squeeze(length_scale).astype(float)
+    if np.ndim(length_scale) > 1:
+        raise ValueError("length_scale cannot be of dimension greater than 1")
+    if np.ndim(length_scale) == 1 and X.shape[1] != length_scale.shape[0]:
+        raise ValueError("Anisotropic kernel must have the same number of "
+                         "dimensions as data (%d!=%d)"
+                         % (length_scale.shape[0], X.shape[1]))
+    return length_scale
+
+class JaccardDistRBF(gp.kernels.RBF):
+
+    """
+    JaccardDistRBF inherited from gp.kernels.RBF, and the Euclidean distance is overwritten
+    by JaccardDistance.
+    https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/gaussian_process/kernels.py
+
+    Radial-basis function kernel (aka squared-exponential kernel).
     The RBF kernel is a stationary kernel. It is also known as the
     "squared exponential" kernel. It is parameterized by a length-scale
     parameter length_scale>0, which can either be a scalar (isotropic variant
@@ -238,19 +254,6 @@ class JaccardDistRBF():
     def __init__(self, length_scale=1.0, length_scale_bounds=(1e-5, 1e5)):
         self.length_scale = length_scale
         self.length_scale_bounds = length_scale_bounds
-
-    @property
-    def anisotropic(self):
-        return np.iterable(self.length_scale) and len(self.length_scale) > 1
-
-    @property
-    def hyperparameter_length_scale(self):
-        if self.anisotropic:
-            return Hyperparameter("length_scale", "numeric",
-                                  self.length_scale_bounds,
-                                  len(self.length_scale))
-        return Hyperparameter(
-            "length_scale", "numeric", self.length_scale_bounds)
 
     def __call__(self, X, Y=None, eval_gradient=False):
         """Return the kernel k(X, Y) and optionally its gradient.
@@ -276,7 +279,8 @@ class JaccardDistRBF():
         X = np.atleast_2d(X)
         length_scale = _check_length_scale(X, self.length_scale)
         if Y is None:
-            dists = pdist(X / length_scale, metric='sqeuclidean')
+            #dists = pdist(X / length_scale, metric='sqeuclidean')
+            dists = Jaccard_distance(X, X)
             K = np.exp(-.5 * dists)
             # convert from upper-triangular matrix to square matrix
             K = squareform(K)
@@ -307,11 +311,3 @@ class JaccardDistRBF():
         else:
             return K
 
-    def __repr__(self):
-        if self.anisotropic:
-            return "{0}(length_scale=[{1}])".format(
-                self.__class__.__name__, ", ".join(map("{0:.3g}".format,
-                                                   self.length_scale)))
-        else:  # isotropic
-            return "{0}(length_scale={1:.3g})".format(
-                self.__class__.__name__, np.ravel(self.length_scale)[0])
