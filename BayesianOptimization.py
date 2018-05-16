@@ -196,6 +196,8 @@ def Jaccard_distance(img1, img2):
     """
     assert(img1.shape==img2.shape)
 
+    print("img1.shape")
+    print(img1.shape)
     n = img1.shape[0]
 
     white_intersect_count = 0
