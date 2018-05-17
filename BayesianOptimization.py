@@ -151,6 +151,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
         model = gp.GaussianProcessRegressor(**gp_params)
     else:
         kernel = JaccardDistRBF()
+        #kernel = gp.kernels.RBF()
         model = gp.GaussianProcessRegressor(kernel=kernel,
                                             alpha=alpha,
                                             n_restarts_optimizer=10,
@@ -215,6 +216,17 @@ def Jaccard_distance(img1, img2):
     print("Jaccard_distance: ", Jaccard_distance)
     return Jaccard_distance
 
+def _check_length_scale(X, length_scale):
+    length_scale = np.squeeze(length_scale).astype(float)
+    if np.ndim(length_scale) > 1:
+        raise ValueError("length_scale cannot be of dimension greater than 1")
+    if np.ndim(length_scale) == 1 and X.shape[1] != length_scale.shape[0]:
+        raise ValueError("Anisotropic kernel must have the same number of "
+                         "dimensions as data (%d!=%d)"
+                         % (length_scale.shape[0], X.shape[1]))
+    return length_scale
+
+
 class JaccardDistRBF(gp.kernels.RBF):
 
     """
@@ -268,9 +280,10 @@ class JaccardDistRBF(gp.kernels.RBF):
             is True.
         """
         X = np.atleast_2d(X)
+        length_scale = _check_length_scale(X, self.length_scale)
         if Y is None:
             #dists = pdist(X / length_scale, metric='sqeuclidean')
-            dists = Jaccard_distance(X, X)
+            dists = (1/length_scale)*(1/length_scale)*Jaccard_distance(X, X)
             K = np.exp(-.5 * dists)
             # convert from upper-triangular matrix to square matrix
             K = squareform(K)
@@ -281,7 +294,7 @@ class JaccardDistRBF(gp.kernels.RBF):
                     "Gradient can only be evaluated when Y is None.")
             #dists = cdist(X / length_scale, Y / length_scale,
             #              metric='sqeuclidean')
-            dists = Jaccard_distance(X, Y)
+            dists = (1/length_scale)*(1/length_scale)*Jaccard_distance(X, Y)
             K = np.exp(-.5 * dists)
 
         if eval_gradient:

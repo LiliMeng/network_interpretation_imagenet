@@ -188,7 +188,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                     segments_unique = np.unique(segments)
 
                     mask = np.zeros(img_show.shape[:2], dtype= "uint8")
-                    #mask.fill(1)
+             
                     for (j, segVal) in enumerate(random_sampled_list):
                         mask[segments == segVal] = 1
                         
@@ -196,18 +196,17 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                     masked_img = input[0].numpy().copy() * mask
 
                     masked_img_batch = masked_img[None, :, :, :]
-
                 
                     masked_img_tensor = torch.autograd.Variable(torch.from_numpy(masked_img_batch)).cuda()
                     mask_output = model(masked_img_tensor)
-                    
-                    probability_score = np.exp(mask_output.data)
+          
                     pred_mask = mask_output.data.max(1, keepdim=True)[1]
-                    probability_score = F.softmax(mask_output)
-
+                    total_probability_score = F.softmax(mask_output)
                     
-                    print("probability_score: ", probability_score)
-                   
+                    class_prob_score = total_probability_score.data.cpu().numpy()[0][label]
+                    print("the correct class probability score: ", class_prob_score)
+                  
+
                     masked_img_show = masked_img.copy()
                     masked_img_show = masked_img_show.transpose(1, 2, 0)
                     masked_img_show -= masked_img_show.min()
@@ -215,52 +214,41 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                     masked_img_show *= 255
                     masked_img_show = masked_img_show.astype(np.uint8)
 
-                    max_prob = torch.max(probability_score).data.cpu().numpy()[0]
-
-                    print("max_prob: ", max_prob)
-
                     if pred_mask[0].cpu().numpy()[0] == target[0]:
                         correct_pred_count+=1
                         print("correct_pred_count: ", correct_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
                         cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter,1), masked_img_show)
-                        correct_label_flag = True
-
-                        return max_prob, correct_label_flag
+                       
                     else:                  
                         wrong_pred_count+=1
                         print("wrong_pred_count: ", wrong_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 0), mask*255)
                         cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter, 0), masked_img_show)
                         
-                        return max_prob, correct_label_flag
+                    return class_prob_score
             else: 
                 print("wrong prediction")
-                #print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
-                return -1, False       
+                raise Exception("currently this situation is not considered yet")     
 
 def sample_loss(params, val_loader, model, criterion):
     """
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    print("params")
-    print(params)
-    firstIndex = params[0]
+    firstIndex = params
 
-    bo_iter = params[0]
+    bo_iter = params
 
     eval_img_index = 1600
     superpixel_percent = 0.4
 
-    max_prob, correct_pred_flag = validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_iter, firstIndex)
+    class_prob_score = validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_iter, firstIndex)
     
     regularizer = 0.01
     sample_loss_value = 0 
- 
-    if correct_pred_flag == True:
-            
-        sample_loss_value = max_prob #+ regularizer*superpixel_percent
+
+    sample_loss_value = class_prob_score + regularizer*superpixel_percent
 
     return sample_loss_value
 
@@ -377,29 +365,30 @@ def main():
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
-    # We need the cartesian combination of these two vectors
-    #param_grid = np.array([C for C in range(44)])
+    # The Oracle
+    param_grid = np.array([C for C in range(44)])
 
-    #real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
+    real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
 
-    #plt.figure()
-    #plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
-    #plt.show()
+    plt.figure()
+    plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
+    plt.show()
 
-    bounds = np.asarray([0, 44])
-    xp, yp = bayesian_optimisation(n_iters=10, 
-                                sample_loss=sample_loss, 
-                                val_loader = val_loader,
-                                model = model,
-                                criterion = criterion,
-                                bounds=bounds,
-                                n_pre_samples=3,
-                                random_search=False)
+    #bounds = np.asarray([0, 44])
+    #sample_loss(params, val_loader, model, criterion)
+    # xp, yp = bayesian_optimisation(n_iters=10, 
+    #                             sample_loss=sample_loss, 
+    #                             val_loader = val_loader,
+    #                             model = model,
+    #                             criterion = criterion,
+    #                             bounds=bounds,
+    #                             n_pre_samples=3,
+    #                             random_search=False)
 
     time_duration = time.time()-start_time
 
-    #print("time duration is: ", time_duration) 
-    plot_summed_heatmap(1600)
+    # #print("time duration is: ", time_duration) 
+    # plot_summed_heatmap(1600)
     
 
 if __name__== "__main__":
