@@ -9,6 +9,9 @@ import sklearn.gaussian_process as gp
 from scipy.stats import norm
 from scipy.optimize import minimize
 from random import *
+from bayesian_active_learning_imagenet import superpixel_mask
+from scipy.spatial.distance import pdist, cdist, squareform
+
 
 def expected_improvement(x, gaussian_process, evaluated_loss, greater_is_better=False, n_params=1):
     """ expected_improvement
@@ -128,12 +131,10 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
 
     n_params = bounds.shape[0]
     
-
-
     if x0 is None:
         #for params in np.random.uniform(bounds[:, 0], bounds[:, 1], (n_pre_samples, bounds.shape[0])):
         for i in range(n_pre_samples):
-            params=[randint(bounds[0], bounds[1])]
+            params = [randint(bounds[0], bounds[1])]
             x_list.append(params)
             y_list.append(sample_loss(params, val_loader, model, criterion))
     else:
@@ -163,7 +164,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
 
         # Sample next hyperparameter
         if random_search:
-            x_random = [randint(1, 44),1]
+            x_random =[randint(1, 44)]
             #x_random = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(random_search, n_params))
             ei = -1 * expected_improvement(x_random, model, yp, greater_is_better=True, n_params=n_params)
             next_sample = x_random[np.argmax(ei), :]
@@ -173,7 +174,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
         # Duplicates will break the GP. In case of a duplicate, we will randomly sample a next query point.
         if np.any(np.abs(next_sample - xp) <= epsilon):
             #next_sample = np.random.uniform(bounds[:, 0], bounds[:, 1], bounds.shape[0])
-            next_sample = [randint(1, 44)]
+            next_sample = [randint(1, 44)]   
         # Sample loss for new set of parameters
         cv_score = sample_loss(next_sample)
 
@@ -187,7 +188,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
 
     return xp, yp
 
-def Jaccard_distance(img1, img2):
+def Jaccard_distance(index1, index2):
     """
     The Jaccard distance between two unmasked area for two input mask images: 1-IOU
     https://en.wikipedia.org/wiki/Jaccard_index
@@ -195,6 +196,11 @@ def Jaccard_distance(img1, img2):
 
     return: the Jaccard_distance
     """
+    print("index1: ", index1)
+    print("index2: ", index2)
+    img1 = superpixel_mask(index1[0][0])
+    img2 = superpixel_mask(index2[0][0])
+
     assert(img1.shape==img2.shape)
 
     print("img1.shape")

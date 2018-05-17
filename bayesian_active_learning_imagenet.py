@@ -78,7 +78,7 @@ parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
-parser.add_argument('--eval_img_index', default=400, type=int,
+parser.add_argument('--eval_img_index', default=1600, type=int,
                     help='the index of evaluation image')
 parser.add_argument('--num_mask_samples', default=1, type=int,
                     help='the number of mask samples')
@@ -88,6 +88,9 @@ if dataset == "imagenet":
     n = 224
 else:
     raise Exception("this dataset is not implemented yet")
+
+global args
+args = parser.parse_args()
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -107,7 +110,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_iter, firstIndex):
+def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -120,7 +123,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
     for i, (input, target) in enumerate(val_loader):
         count += 1
 
-        if count > eval_img_index:
+        if count > args.eval_img_index:
             break
             
         input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
@@ -138,7 +141,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
        
         # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
         # # cv2.waitKey(0)
-        if count == eval_img_index:
+        if count == args.eval_img_index:
             cv2.imwrite("org_img.png", img_show)
             
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
@@ -177,9 +180,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                     num_conse_superpixels = int(0.4*total_num_segments)
                     print("total_num_segments: ", total_num_segments)
                     print("num_conse_superpixels: ", num_conse_superpixels)
-                    #firstIndex= randint(1, total_num_segments-num_conse_superpixels)
                    
-
                     random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
                     #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
                     segments_unique = np.unique(segments)
@@ -228,19 +229,74 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
                 print("wrong prediction")
                 raise Exception("currently this situation is not considered yet")     
 
+
+def superpixel_mask(firstIndex):
+
+    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
+
+    val_loader = torch.utils.data.DataLoader(
+        datasets.ImageFolder(val_data_dir, transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])),
+        batch_size = args.batch_size, shuffle=False,
+        num_workers = args.workers, pin_memory=True)
+
+    count = 0
+
+    for i, (input, target) in enumerate(val_loader):
+        count += 1
+
+        if count > args.eval_img_index:
+            break
+            
+        input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
+        input_var.requires_grad = True
+        target_var = torch.autograd.Variable(target).cuda()
+
+        if count == args.eval_img_index:
+            img_show = input[0].numpy().copy()
+            img_show = img_show.transpose( 1, 2, 0 )
+            img_show -= img_show.min()
+            img_show /= img_show.max()
+            img_show *= 255
+            img_show = img_show.astype(np.uint8)
+            
+            segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
+            total_num_segments = len(np.unique(segments))
+            num_conse_superpixels = int(0.4*total_num_segments)
+
+            random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
+        
+            segments_unique = np.unique(segments)
+
+            mask = np.zeros(img_show.shape[:2], dtype= "uint8")
+             
+            for (j, segVal) in enumerate(random_sampled_list):
+                mask[segments == segVal] = 1
+                        
+            return mask*255
+              
 def sample_loss(params, val_loader, model, criterion):
     """
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    firstIndex = params
+    print("params")
+    print(params)
+    firstIndex = params[0]
 
-    bo_iter = params
+    bo_iter = params[0]
 
-    eval_img_index = 1600
     superpixel_percent = 0.4
 
-    class_prob_score = validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_iter, firstIndex)
+    class_prob_score = validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex)
     
     regularizer = 0.01
     sample_loss_value = 0 
@@ -327,9 +383,6 @@ def main():
    
     start_time = time.time()
 
-    global args
-    args = parser.parse_args()
-
     args.distributed = args.world_size > 1
     args.batch_size=1
 
@@ -362,29 +415,29 @@ def main():
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
-    # The Oracle
-    param_grid = np.array([C for C in range(44)])
+    # # The Oracle
+    # param_grid = np.array([C for C in range(44)])
 
-    real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
+    # real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
 
-    plt.figure()
-    plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
-    plt.show()
+    # plt.figure()
+    # plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
+    # plt.show()
 
-    #bounds = np.asarray([0, 44])
-    #sample_loss(params, val_loader, model, criterion)
-    # xp, yp = bayesian_optimisation(n_iters=10, 
-    #                             sample_loss=sample_loss, 
-    #                             val_loader = val_loader,
-    #                             model = model,
-    #                             criterion = criterion,
-    #                             bounds=bounds,
-    #                             n_pre_samples=3,
-    #                             random_search=False)
+
+    bounds = np.asarray([0, 44])
+    xp, yp = bayesian_optimisation(n_iters=10, 
+                                sample_loss=sample_loss, 
+                                val_loader = val_loader,
+                                model = model,
+                                criterion = criterion,
+                                bounds=bounds,
+                                n_pre_samples=3,
+                                random_search=False)
 
     time_duration = time.time()-start_time
 
-    # #print("time duration is: ", time_duration) 
+    print("time duration is: ", time_duration) 
     # plot_summed_heatmap(1600)
     
 
