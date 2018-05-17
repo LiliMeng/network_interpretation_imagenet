@@ -170,10 +170,7 @@ def validate_nueral_network(val_loader, model, criterion, eval_img_index, bo_ite
 
                 correct_pred_count = 0
                 wrong_pred_count = 0
-
-                summed_superpixel_labels = np.zeros(img_show.shape[:2])
-
-                
+          
                 for i in range(args.num_mask_samples): 
                     correct_label_flag = False
                     total_num_segments = len(np.unique(segments))
@@ -248,7 +245,7 @@ def sample_loss(params, val_loader, model, criterion):
     regularizer = 0.01
     sample_loss_value = 0 
 
-    sample_loss_value = class_prob_score + regularizer*superpixel_percent
+    sample_loss_value = class_prob_score # + regularizer*superpixel_percent
 
     return sample_loss_value
 
