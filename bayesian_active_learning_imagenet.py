@@ -364,7 +364,7 @@ def plot_summed_heatmap(val_img_index):
     figure.set_size_inches(80, 30)
     
     plt.savefig('result_imgs/index_{}.png'.format(val_img_index))
-    cv2.imwrite("heatmaps/index_{}.png".format(val_img_index))
+    cv2.imwrite("heatmaps/index_{}.png".format(val_img_index), result_heatmap)
     
 
 def main():
@@ -412,28 +412,60 @@ def main():
     # plt.figure()
     # plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
     # plt.show()
+    count = 0
+    for i, (input, target) in enumerate(val_loader):
+        count += 1
 
-    mask_dir = './masks'
-    if not os.path.exists(mask_dir):
-        os.makedirs(mask_dir)
-    else:
-        shutil.rmtree(mask_dir)           
-        os.makedirs(mask_dir)
+        if count > args.eval_img_index:
+            break
+            
+        input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
+        input_var.requires_grad = True
+        target_var = torch.autograd.Variable(target).cuda()
+        
+        img_show = input[0].numpy().copy()
+        img_show = img_show.transpose( 1, 2, 0 )
 
-    bounds = np.asarray([[0, 44]])
-    xp, yp = bayesian_optimisation(n_iters=10, 
-                                sample_loss=sample_loss, 
-                                val_loader = val_loader,
-                                nn_model = model,
-                                criterion = criterion,
-                                bounds=bounds,
-                                n_pre_samples=3,
-                                random_search=False)
+     
+        img_show -= img_show.min()
+        img_show /= img_show.max()
+        img_show *= 255
+        img_show = img_show.astype(np.uint8)
+       
+        # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
+        # # cv2.waitKey(0)
+        if count == args.eval_img_index:
+            cv2.imwrite("org_img.png", img_show)
+            
+            segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
+                        
+            print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
 
-    time_duration = time.time()-start_time
+            firstIndex_upperbound = int(0.6*len(np.unique(segments)))
 
-    print("time duration is: ", time_duration) 
-    plot_summed_heatmap(args.eval_img_index)
+            print("firstIndex_upperbound: ", firstIndex_upperbound)
+    
+            mask_dir = './masks'
+            if not os.path.exists(mask_dir):
+                os.makedirs(mask_dir)
+            else:
+                shutil.rmtree(mask_dir)           
+                os.makedirs(mask_dir)
+
+            bounds = np.asarray([[0, firstIndex_upperbound]])
+            xp, yp = bayesian_optimisation(n_iters=10, 
+                                        sample_loss=sample_loss, 
+                                        val_loader = val_loader,
+                                        nn_model = model,
+                                        criterion = criterion,
+                                        bounds=bounds,
+                                        n_pre_samples=3,
+                                        random_search=False)
+
+            time_duration = time.time()-start_time
+
+            print("time duration is: ", time_duration) 
+            plot_summed_heatmap(args.eval_img_index)
     
 
 
