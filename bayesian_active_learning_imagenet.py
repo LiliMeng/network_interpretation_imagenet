@@ -33,6 +33,8 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torch.nn.functional as F
+from utils import generate_boundingbox
+
 
 best_prec1 = 0
 np.set_printoptions(threshold=np.nan)
@@ -309,7 +311,7 @@ def load_images_from_folder(folder):
     return img_filenames, labels
 
 
-def plot_summed_heatmap(val_img_index):
+def plot_summed_heatmap(val_img_index, bbox_threshold):
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
     train_x = []
@@ -366,106 +368,108 @@ def plot_summed_heatmap(val_img_index):
     plt.savefig('result_imgs/index_{}.png'.format(val_img_index))
     cv2.imwrite("heatmaps/index_{}.png".format(val_img_index), result_heatmap)
     
+    generate_boundingbox(val_img_index, result_heatmap, bbox_threshold, "heatmaps")
 
 def main():
 
-   
-    start_time = time.time()
+    bbox_threshold = 160
+    plot_summed_heatmap(args.eval_img_index, bbox_threshold)
+    # start_time = time.time()
 
-    args.distributed = args.world_size > 1
-    args.batch_size=1
+    # args.distributed = args.world_size > 1
+    # args.batch_size=1
 
-    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+    # val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
 
-    # create model
-    print("=> using pre-trained model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=True)
-    model.cuda()
+    # # create model
+    # print("=> using pre-trained model '{}'".format(args.arch))
+    # model = models.__dict__[args.arch](pretrained=True)
+    # model.cuda()
 
     
-    criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    # criterion = nn.CrossEntropyLoss().cuda()
+    # optimizer = torch.optim.SGD(model.parameters(), args.lr,
+    #                             momentum=args.momentum,
+    #                             weight_decay=args.weight_decay)
 
-    cudnn.benchmark = True
+    # cudnn.benchmark = True
 
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                  std=[0.229, 0.224, 0.225])
 
 
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(val_data_dir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+    # val_loader = torch.utils.data.DataLoader(
+    #     datasets.ImageFolder(val_data_dir, transforms.Compose([
+    #         transforms.Resize(256),
+    #         transforms.CenterCrop(224),
+    #         transforms.ToTensor(),
+    #         normalize,
+    #     ])),
+    #     batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True)
 
-    # # The Oracle
-    # param_grid = np.array([C for C in range(44)])
+    # # # The Oracle
+    # # param_grid = np.array([C for C in range(44)])
 
-    # real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
+    # # real_loss = [sample_loss(params, val_loader, model, criterion) for params in param_grid]
 
-    # plt.figure()
-    # plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
-    # plt.show()
-    count = 0
-    for i, (input, target) in enumerate(val_loader):
-        count += 1
+    # # plt.figure()
+    # # plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
+    # # plt.show()
+    # count = 0
+    # for i, (input, target) in enumerate(val_loader):
+    #     count += 1
 
-        if count > args.eval_img_index:
-            break
+    #     if count > args.eval_img_index:
+    #         break
             
-        input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
-        input_var.requires_grad = True
-        target_var = torch.autograd.Variable(target).cuda()
+    #     input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
+    #     input_var.requires_grad = True
+    #     target_var = torch.autograd.Variable(target).cuda()
         
-        img_show = input[0].numpy().copy()
-        img_show = img_show.transpose( 1, 2, 0 )
+    #     img_show = input[0].numpy().copy()
+    #     img_show = img_show.transpose( 1, 2, 0 )
 
      
-        img_show -= img_show.min()
-        img_show /= img_show.max()
-        img_show *= 255
-        img_show = img_show.astype(np.uint8)
+    #     img_show -= img_show.min()
+    #     img_show /= img_show.max()
+    #     img_show *= 255
+    #     img_show = img_show.astype(np.uint8)
        
-        # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
-        # # cv2.waitKey(0)
-        if count == args.eval_img_index:
-            cv2.imwrite("org_img.png", img_show)
+    #     # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
+    #     # # cv2.waitKey(0)
+    #     if count == args.eval_img_index:
+    #         cv2.imwrite("org_img.png", img_show)
             
-            segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
+    #         segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
                         
-            print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
+    #         print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
 
-            firstIndex_upperbound = int(0.6*len(np.unique(segments)))
+    #         firstIndex_upperbound = int(0.6*len(np.unique(segments)))
 
-            print("firstIndex_upperbound: ", firstIndex_upperbound)
+    #         print("firstIndex_upperbound: ", firstIndex_upperbound)
     
-            mask_dir = './masks'
-            if not os.path.exists(mask_dir):
-                os.makedirs(mask_dir)
-            else:
-                shutil.rmtree(mask_dir)           
-                os.makedirs(mask_dir)
+    #         mask_dir = './masks'
+    #         if not os.path.exists(mask_dir):
+    #             os.makedirs(mask_dir)
+    #         else:
+    #             shutil.rmtree(mask_dir)           
+    #             os.makedirs(mask_dir)
 
-            bounds = np.asarray([[0, firstIndex_upperbound]])
-            xp, yp = bayesian_optimisation(n_iters=10, 
-                                        sample_loss=sample_loss, 
-                                        val_loader = val_loader,
-                                        nn_model = model,
-                                        criterion = criterion,
-                                        bounds=bounds,
-                                        n_pre_samples=3,
-                                        random_search=False)
+    #         bounds = np.asarray([[0, firstIndex_upperbound]])
+    #         xp, yp = bayesian_optimisation(n_iters=10, 
+    #                                     sample_loss=sample_loss, 
+    #                                     val_loader = val_loader,
+    #                                     nn_model = model,
+    #                                     criterion = criterion,
+    #                                     bounds=bounds,
+    #                                     n_pre_samples=3,
+    #                                     random_search=False)
 
-            time_duration = time.time()-start_time
+    #         time_duration = time.time()-start_time
 
-            print("time duration is: ", time_duration) 
-            plot_summed_heatmap(args.eval_img_index)
+    #         print("time duration is: ", time_duration) 
+    #         plot_summed_heatmap(args.eval_img_index)
     
 
 
