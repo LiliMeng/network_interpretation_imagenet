@@ -166,57 +166,55 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
 
                 correct_pred_count = 0
                 wrong_pred_count = 0
-          
-                for i in range(args.num_mask_samples): 
-                    correct_label_flag = False
-                    total_num_segments = len(np.unique(segments))
-                    num_conse_superpixels = int(0.4*total_num_segments)
-                    print("total_num_segments: ", total_num_segments)
-                    print("num_conse_superpixels: ", num_conse_superpixels)
                    
-                    random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
-                    #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
-                    segments_unique = np.unique(segments)
+                total_num_segments = len(np.unique(segments))
+                num_conse_superpixels = int(0.4*total_num_segments)
+                print("total_num_segments: ", total_num_segments)
+                print("num_conse_superpixels: ", num_conse_superpixels)
+               
+                random_sampled_list = np.unique(segments)[firstIndex:(firstIndex + num_conse_superpixels)]              
+                #random_sampled_list= sample(range(np.unique(segments)[0], np.unique(segments)[-1]), num_conse_superpixels)
+                segments_unique = np.unique(segments)
 
-                    mask = np.zeros(img_show.shape[:2], dtype= "uint8")
-             
-                    for (j, segVal) in enumerate(random_sampled_list):
-                        mask[segments == segVal] = 1
-                        
+                mask = np.zeros(img_show.shape[:2], dtype= "uint8")
+         
+                for (j, segVal) in enumerate(random_sampled_list):
+                    mask[segments == segVal] = 1
                     
-                    masked_img = input[0].numpy().copy() * mask
-
-                    masked_img_batch = masked_img[None, :, :, :]
                 
-                    masked_img_tensor = torch.autograd.Variable(torch.from_numpy(masked_img_batch)).cuda()
-                    mask_output = model(masked_img_tensor)
-          
-                    pred_mask = mask_output.data.max(1, keepdim=True)[1]
-                    total_probability_score = F.softmax(mask_output)
+                masked_img = input[0].numpy().copy() * mask
+
+                masked_img_batch = masked_img[None, :, :, :]
+            
+                masked_img_tensor = torch.autograd.Variable(torch.from_numpy(masked_img_batch)).cuda()
+                mask_output = model(masked_img_tensor)
+      
+                pred_mask = mask_output.data.max(1, keepdim=True)[1]
+                total_probability_score = F.softmax(mask_output)
+                
+                class_prob_score = total_probability_score.data.cpu().numpy()[0][label]
+                print("the correct class probability score: ", class_prob_score)
+              
+
+                masked_img_show = masked_img.copy()
+                masked_img_show = masked_img_show.transpose(1, 2, 0)
+                masked_img_show -= masked_img_show.min()
+                masked_img_show /= masked_img_show.max()
+                masked_img_show *= 255
+                masked_img_show = masked_img_show.astype(np.uint8)
+
+                if pred_mask[0].cpu().numpy()[0] == target[0]:
+                    correct_pred_count+=1
+                    print("correct_pred_count: ", correct_pred_count)
+                    cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
+                    cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter,1), masked_img_show)            
+                else:                  
+                    wrong_pred_count+=1
+                    print("wrong_pred_count: ", wrong_pred_count)
+                    cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 0), mask*255)
+                    cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter, 0), masked_img_show)
                     
-                    class_prob_score = total_probability_score.data.cpu().numpy()[0][label]
-                    print("the correct class probability score: ", class_prob_score)
-                  
-
-                    masked_img_show = masked_img.copy()
-                    masked_img_show = masked_img_show.transpose(1, 2, 0)
-                    masked_img_show -= masked_img_show.min()
-                    masked_img_show /= masked_img_show.max()
-                    masked_img_show *= 255
-                    masked_img_show = masked_img_show.astype(np.uint8)
-
-                    if pred_mask[0].cpu().numpy()[0] == target[0]:
-                        correct_pred_count+=1
-                        print("correct_pred_count: ", correct_pred_count)
-                        cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
-                        cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter,1), masked_img_show)            
-                    else:                  
-                        wrong_pred_count+=1
-                        print("wrong_pred_count: ", wrong_pred_count)
-                        cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 0), mask*255)
-                        cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter, 0), masked_img_show)
-                        
-                    return class_prob_score
+                return class_prob_score
             else: 
                 print("wrong prediction")
                 raise Exception("currently this situation is not considered yet")     
@@ -357,17 +355,16 @@ def plot_summed_heatmap(val_img_index):
 
     org_img = cv2.imread('org_img.png')
         
-    plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Org_img')#, fontsize=60)
+    plt.subplot(121),plt.imshow(org_img[:,:,::-1],'gray'),plt.title('Org_img', fontsize=60)
 
-    plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')#, fontsize=60)
+    plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap', fontsize=60)
     plt.set_cmap('jet')
-    # plt.colorbar()
-    # plt.show()
+    plt.colorbar()
     figure = plt.gcf() # get current figure
     figure.set_size_inches(80, 30)
     
     plt.savefig('result_imgs/index_{}.png'.format(val_img_index))
-
+    cv2.imwrite("heatmaps/index_{}.png".format(val_img_index))
     
 
 def main():
