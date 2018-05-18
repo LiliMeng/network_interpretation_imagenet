@@ -60,6 +60,6 @@ optional arguments:
 
 ```bash
 
-python gp_superpixel_data_imagenet.py -a resnet101 /scratch/datasets/imagenet/
+python bayesian_active_learning_imagenet.py -a resnet101 /scratch/datasets/imagenet/
 
 ```
