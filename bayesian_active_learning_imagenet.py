@@ -311,7 +311,7 @@ def load_images_from_folder(folder):
     return img_filenames, labels
 
 
-def plot_summed_heatmap(val_img_index, label):
+def plot_summed_heatmap(val_img_index):
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
     train_x = []
@@ -335,7 +335,7 @@ def plot_summed_heatmap(val_img_index, label):
                     else:
                         dict_pixel[pixel_position]  = mask_label
    
-    print("%d samples, the corrrect prediction number: %d "%(len(mask_filenames), correct_pred_count))
+    print("%d samples, the correct prediction number: %d "%(len(mask_filenames), correct_pred_count))
 
     result_gray_img = np.zeros((n,n))
     result_mask = np.zeros((n, n), dtype= "uint8")
