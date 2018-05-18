@@ -161,10 +161,6 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
             print("label ", label)
             print("pred[0].cpu().numpy() ", pred[0].cpu().numpy()[0])
 
-            mask_dir = './masks'
-            if not os.path.exists(mask_dir):
-                os.makedirs(mask_dir)
-
             if pred[0].cpu().numpy()[0] == label:
                 print("correct prediction, index_{} , label_{}".format(count, classes_dict[label]))
 
@@ -213,8 +209,7 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
                         correct_pred_count+=1
                         print("correct_pred_count: ", correct_pred_count)
                         cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
-                        cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter,1), masked_img_show)
-                       
+                        cv2.imwrite('./mask_on_img/masked_imgs_{}_{}.png'.format(bo_iter,1), masked_img_show)            
                     else:                  
                         wrong_pred_count+=1
                         print("wrong_pred_count: ", wrong_pred_count)
@@ -316,7 +311,7 @@ def load_images_from_folder(folder):
     return img_filenames, labels
 
 
-def plot_summed_heatmap(val_img_index):
+def plot_summed_heatmap(val_img_index, label):
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
     train_x = []
@@ -366,14 +361,12 @@ def plot_summed_heatmap(val_img_index):
 
     plt.subplot(122),plt.imshow(result_heatmap[:,:,::-1],'gray'),plt.title('Summed label training heatmap')#, fontsize=60)
     plt.set_cmap('jet')
-    plt.colorbar()
-    plt.show()
-    #figure = plt.gcf() # get current figure
-    #figure.set_size_inches(80, 30)
-                          
+    # plt.colorbar()
+    # plt.show()
+    figure = plt.gcf() # get current figure
+    figure.set_size_inches(80, 30)
     
-    
-    #plt.savefig('result_imgs/index_{}_label_{}.png'.format(val_img_index, classes_dict[label]))
+    plt.savefig('result_imgs/index_{}.png'.format(val_img_index))
 
     
 
@@ -423,6 +416,12 @@ def main():
     # plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
     # plt.show()
 
+    mask_dir = './masks'
+    if not os.path.exists(mask_dir):
+        os.makedirs(mask_dir)
+    else:
+        shutil.rmtree(mask_dir)           
+        os.makedirs(mask_dir)
 
     bounds = np.asarray([[0, 44]])
     xp, yp = bayesian_optimisation(n_iters=10, 
@@ -437,8 +436,10 @@ def main():
     time_duration = time.time()-start_time
 
     print("time duration is: ", time_duration) 
-    plot_summed_heatmap(1600)
+    plot_summed_heatmap(args.eval_img_index)
     
+
+
 
 if __name__== "__main__":
   main()

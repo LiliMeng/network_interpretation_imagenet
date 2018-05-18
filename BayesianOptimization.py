@@ -82,7 +82,7 @@ def sample_next_hyperparameter(acquisition_func, gaussian_process, evaluated_los
     n_params = bounds.shape[0]
 
     #for starting_point in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, n_params)):
-    for starting_point in range(1,44):
+    for starting_point in range(bounds[0][0], bounds[0][1]):
         res = minimize(fun=acquisition_func,
                        x0=[starting_point], #.reshape(1, -1),
                        bounds=bounds,
@@ -167,7 +167,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, nn_model, criterion,
 
         # Sample next hyperparameter
         if random_search:
-            x_random =[randint(1, 44)]
+            x_random =[randint(bounds[0])]
             #x_random = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(random_search, n_params))
             ei = -1 * expected_improvement(x_random, model, yp, greater_is_better=True, n_params=n_params)
             next_sample = x_random[np.argmax(ei), :]
@@ -177,7 +177,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, nn_model, criterion,
         # Duplicates will break the GP. In case of a duplicate, we will randomly sample a next query point.
         if np.any(np.abs(next_sample - xp) <= epsilon):
             #next_sample = np.random.uniform(bounds[:, 0], bounds[:, 1], bounds.shape[0])
-            next_sample = [randint(1, 44)]   
+            next_sample = [randint(bounds[0][0],bounds[0][1])]   
         # Sample loss for new set of parameters
         cv_score = sample_loss(next_sample, val_loader, nn_model, criterion)
 
