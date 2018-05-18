@@ -81,6 +81,9 @@ def sample_next_hyperparameter(acquisition_func, gaussian_process, evaluated_los
     best_acquisition_value = 1
     n_params = bounds.shape[0]
 
+    print("n_params")
+    print(n_params)
+
     #for starting_point in np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_restarts, n_params)):
     for starting_point in range(1,44):
         res = minimize(fun=acquisition_func,
@@ -96,7 +99,7 @@ def sample_next_hyperparameter(acquisition_func, gaussian_process, evaluated_los
     return best_x
 
 
-def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bounds, x0=None, n_pre_samples=5,
+def bayesian_optimisation(n_iters, sample_loss, val_loader, nn_model, criterion, bounds, x0=None, n_pre_samples=5,
                           gp_params=None, random_search=False, alpha=1e-5, epsilon=1e-7):
     """ bayesian_optimisation
 
@@ -130,17 +133,24 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
     y_list = []
 
     n_params = bounds.shape[0]
+
+    print("bounds.shape")
+    print(bounds.shape)
+    print("n_params")
+    print(n_params)
+    print("bounds[:, 0]")
+    print(bounds[:, 0])
     
     if x0 is None:
         #for params in np.random.uniform(bounds[:, 0], bounds[:, 1], (n_pre_samples, bounds.shape[0])):
         for i in range(n_pre_samples):
-            params = [randint(bounds[0], bounds[1])]
+            params = [randint(bounds[0][0], bounds[0][1])]
             x_list.append(params)
-            y_list.append(sample_loss(params, val_loader, model, criterion))
+            y_list.append(sample_loss(params, val_loader, nn_model, criterion))
     else:
         for params in x0:
             x_list.append(params)
-            y_list.append(sample_loss(params, val_loader, model, criterion))
+            y_list.append(sample_loss(params, val_loader, nn_model, criterion))
 
     print("x0")
     print(x0)
@@ -151,15 +161,18 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
     if gp_params is not None:
         model = gp.GaussianProcessRegressor(**gp_params)
     else:
-        kernel = JaccardDistRBF()
-        #kernel = gp.kernels.RBF()
+        #kernel = JaccardDistRBF()
+        kernel = gp.kernels.RBF()
         model = gp.GaussianProcessRegressor(kernel=kernel,
                                             alpha=alpha,
                                             n_restarts_optimizer=10,
                                             normalize_y=True)
 
     for n in range(n_iters):
-
+        print("xp")
+        print(xp)
+        print("yp")
+        print(yp)
         model.fit(xp, yp)
 
         # Sample next hyperparameter
@@ -176,7 +189,7 @@ def bayesian_optimisation(n_iters, sample_loss, val_loader, model, criterion, bo
             #next_sample = np.random.uniform(bounds[:, 0], bounds[:, 1], bounds.shape[0])
             next_sample = [randint(1, 44)]   
         # Sample loss for new set of parameters
-        cv_score = sample_loss(next_sample)
+        cv_score = sample_loss(next_sample, val_loader, nn_model, criterion)
 
         # Update lists
         x_list.append(next_sample)

@@ -147,9 +147,6 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
                         
             print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
-            
-            print("segments")
-            print(segments)
 
             #cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
             # cv2.waitKey(0)
@@ -290,9 +287,11 @@ def sample_loss(params, val_loader, model, criterion):
     """
     print("params")
     print(params)
-    firstIndex = params[0]
+    firstIndex = int(params[0])
 
     bo_iter = params[0]
+
+    print("firstIndex: ", firstIndex)
 
     superpixel_percent = 0.4
 
@@ -425,11 +424,11 @@ def main():
     # plt.show()
 
 
-    bounds = np.asarray([0, 44])
+    bounds = np.asarray([[0, 44]])
     xp, yp = bayesian_optimisation(n_iters=10, 
                                 sample_loss=sample_loss, 
                                 val_loader = val_loader,
-                                model = model,
+                                nn_model = model,
                                 criterion = criterion,
                                 bounds=bounds,
                                 n_pre_samples=3,
@@ -438,7 +437,7 @@ def main():
     time_duration = time.time()-start_time
 
     print("time duration is: ", time_duration) 
-    # plot_summed_heatmap(1600)
+    plot_summed_heatmap(1600)
     
 
 if __name__== "__main__":
