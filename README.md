@@ -60,6 +60,6 @@ optional arguments:
 
 ```bash
 
-python bayesian_active_learning_imagenet.py -a resnet101 ./data
+python bayesian_active_learning_imagenet.py -a resnet101 ./data/
 
 ```
