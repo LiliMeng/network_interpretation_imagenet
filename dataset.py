@@ -70,9 +70,9 @@ class imagenet_localization_dataset(data.Dataset):
                 x, y, w, h = bbox
                 img_w, img_h = img.size
                 if img_w < img_h:
-                    r = 224 / img_h
-                else:
                     r = 224 / img_w
+                else:
+                    r = 224 / img_h
                 x, y, w, h = x*r, y*r, w*r, h*r
                 img_w, img_h = img_w*r, img_h*r
                 x -= img_w/2 - 224/2
@@ -133,9 +133,14 @@ def main():
 
     count = 0
 
-  
+    eval_img_index = 30
     
     for i, (input, target, bboxes) in enumerate(val_loader):
+
+        count +=1
+
+        if count > eval_img_index:
+            break
         
         input_var = torch.autograd.Variable(input, requires_grad=True)
         input_var.requires_grad = True
@@ -149,13 +154,17 @@ def main():
         img_show *= 255
         img_show = img_show.astype(np.uint8)
 
-        x, y, h, w = bboxes[0]
-      
-        cv2.rectangle(img_show,(x,y),(x+w,y+h),(255,0,0),2)
+        label = target[0].numpy()[0]
+        
+        x, y, w, h = bboxes[0]
 
-        cv2.imshow("org_img.png", img_show)
-        cv2.waitKey(0)
-            #cv2.imwrite("org_img1.png", img_show)
+        if count == eval_img_index:
+            final_img = img_show.copy()
+            cv2.rectangle(final_img,(int(x),int(y)),(int(x+w),int(y+h)),(255,0,0),2)
+
+            cv2.imshow("org_img_label_{}.png".format(classes_dict[label]), final_img)
+            cv2.waitKey(0)
+           
 
             # segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
                         

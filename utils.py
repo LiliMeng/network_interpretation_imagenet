@@ -111,12 +111,7 @@ def generate_boundingbox(img_index, img, threshold, save_folder):
 
     return x, y, w, h
 
-def draw_bbox(rectangle_array, img):
-    x = rectangle_array[0]
-    y = rectangle_array[1]
-    w = rectangle_array[2]
-    h = rectangle_array[3]
-    cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
+
 
 
 def IOU(boxA, boxB):
