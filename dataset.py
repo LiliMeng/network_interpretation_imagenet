@@ -1,0 +1,183 @@
+import torch
+import torch.utils.data as data
+import numpy
+import random
+import cv2
+import sys
+import torch.nn.functional as F
+import gzip
+import pickle
+import numpy as np
+import os
+import torchvision.transforms as transform
+import csv
+from PIL import Image
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
+from imagenet_lables import *
+from skimage.segmentation import felzenszwalb, slic, quickshift, watershed
+from skimage.util import img_as_float
+
+
+class imagenet_localization_dataset(data.Dataset):
+    def __init__( self, data_dir, crop, transform = None ):
+        import csv
+        img_dirs = []
+        labels = []
+        bboxes_list = []
+        img_list_dir = os.path.join( data_dir, 'LOC_val_solution.csv' )
+        with open(img_list_dir, 'r') as f:
+            for line in f:
+                img_name, anno = line.split(',')
+                anno = str(anno).split()
+                if len(anno) % 5 != 0:
+                    continue
+                img_dirs.append( os.path.join( data_dir, anno[0], img_name + '.JPEG' ) )
+                bboxes = []
+                for i in range(len(anno) // 5):
+                    x, y, h, w = anno[i*5+1:i*5+5]
+                    x, y, h, w = float(x), float(y), float(h), float(w)
+                    h -= x
+                    w -= y
+                    bboxes.append([x, y, h, w])
+                bboxes_list.append( bboxes )
+                labels.append( anno[0] )
+
+        labels_list = sorted(set(labels))
+        dic = {}
+        for i in range(len(labels_list)):
+            dic[labels_list[i]] = i
+        labels = [dic[i] for i in labels]
+        self.img_dirs = img_dirs
+        self.labels = labels
+        self.bboxes_list = bboxes_list
+        self.transform = transform
+        self.len = len(img_dirs)
+        self.crop = crop
+       
+    
+    def __len__( self ):
+        return self.len
+
+    def __getitem__( self, index ):
+        img = Image.open( self.img_dirs[index] ).convert('RGB')
+        bboxes = self.bboxes_list[index]
+        label = self.labels[index]
+        print("bboxes in the class: ", bboxes)
+        if self.crop == -1:
+            A = None
+            for bbox in bboxes:
+                x, y, w, h = bbox
+                img_w, img_h = img.size
+                if img_w < img_h:
+                    r = 224 / img_h
+                else:
+                    r = 224 / img_w
+                x, y, w, h = x*r, y*r, w*r, h*r
+                img_w, img_h = img_w*r, img_h*r
+                x -= img_w/2 - 224/2
+                y -= img_h/2 - 224/2
+                if A is None:
+                    A = [x, y, w, h]
+                else:
+                    A = [min(x, A[0]), min(y, A[1]), max(A[0]+A[2], x+w) - min(x, A[0]), max(A[1]+A[3], y+h) - min(y, A[1])]
+        elif self.crop == 0:
+            x, y, w, h = bboxes[0]
+            img = img.crop((x, y, x+w, y+h))
+            img = img.resize((224, 224), Image.BILINEAR)
+            A = [0, 0, 224, 224]
+        elif self.crop == 1:
+            img = transforms.Resize(256)(img)
+            img = transforms.CenterCrop(224)(img)
+            x, y, w, h = bbox_pred
+            img = img.crop((int(x), int(y), int(x+w), int(y+h)))
+            img = img.resize((224, 224), Image.BILINEAR)
+            A = [0, 0, 224, 224]
+        if self.transform is not None:
+            img = self.transform(img)
+        print("A in the class: ", A)
+        return img, torch.from_numpy(np.array([label])), torch.from_numpy(np.array(A))
+
+
+def main():
+
+    val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
+
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
+    val_loader = torch.utils.data.DataLoader(imagenet_localization_dataset(
+                    data_dir=val_data_dir,
+                    crop = -1,
+                    transform = transforms.Compose([
+                    transforms.Resize(224),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    normalize,
+                ])),
+        batch_size = 1, shuffle=False,
+        num_workers = 1, pin_memory=True)
+            
+    # print("val_loader")
+    # print(val_loader)
+
+    # val_loader = torch.utils.data.DataLoader(
+    #     datasets.ImageFolder(val_data_dir, transforms.Compose([
+    #         transforms.Resize(256),
+    #         transforms.CenterCrop(224),
+    #         transforms.ToTensor(),
+    #         normalize,
+    #     ])),
+    #     batch_size=1, shuffle=False,
+    #     num_workers=4, pin_memory=True)
+
+    count = 0
+
+  
+    
+    for i, (input, target, bboxes) in enumerate(val_loader):
+        
+        input_var = torch.autograd.Variable(input, requires_grad=True)
+        input_var.requires_grad = True
+        target_var = torch.autograd.Variable(target)
+
+        img_show = input[0].numpy().copy()
+        img_show = img_show.transpose( 1, 2, 0 )
+
+        img_show -= img_show.min()
+        img_show /= img_show.max()
+        img_show *= 255
+        img_show = img_show.astype(np.uint8)
+
+        x, y, h, w = bboxes[0]
+      
+        cv2.rectangle(img_show,(x,y),(x+w,y+h),(255,0,0),2)
+
+        cv2.imshow("org_img.png", img_show)
+        cv2.waitKey(0)
+            #cv2.imwrite("org_img1.png", img_show)
+
+            # segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
+                        
+            # print("Felzenszwalb number of segments: {}".format(len(np.unique(segments))))
+
+            #cv2.imshow('superpixels', mark_boundaries(img_as_float(img_show), segments))
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+            # compute output
+            # output = model(input_var)
+            # loss = criterion(output, target_var)
+
+            # pred = output.data.max(1, keepdim=True)[1]
+            # label = target[0]
+            # print("label ", label)
+            # print("pred[0].cpu().numpy() ", pred[0].cpu().numpy()[0])
+
+            # if pred[0].cpu().numpy()[0] == label:
+            #     print("correct prediction, index_{} , label_{}".format(count, classes_dict[label]))
+
+
+
+if __name__== "__main__":
+  main()
