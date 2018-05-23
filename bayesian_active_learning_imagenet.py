@@ -33,7 +33,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torch.nn.functional as F
-from utils import generate_boundingbox
+from utils import generate_boundingbox, generate_IOU
 from dataset import imagenet_localization_dataset
 
 
@@ -375,8 +375,7 @@ def plot_summed_heatmap(val_img_index, bbox_threshold, gt_bbox):
 
 def main():
 
-    # bbox_threshold = 160
-    # plot_summed_heatmap(args.eval_img_index, bbox_threshold)
+ 
     start_time = time.time()
 
     args.distributed = args.world_size > 1
@@ -486,7 +485,8 @@ def main():
             time_duration = time.time()-start_time
 
             print("time duration is: ", time_duration) 
-            plot_summed_heatmap(args.eval_img_index, gt_bboxes[0])
+            bbox_threshold = 160
+            plot_summed_heatmap(args.eval_img_index, bbox_threshold, gt_bboxes[0])
     
 
 
