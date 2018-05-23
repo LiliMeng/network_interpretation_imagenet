@@ -133,8 +133,8 @@ def generate_IOU(boxA, boxB, img):
 
     
 
-    cv2.rectangle(img,(boxA[0],boxA[1]),(boxA[0]+boxA[2],boxB[1]+boxB[3]),(255,0,0),2)
-    cv2.rectangle(img,(boxB[0],boxA[1]),(boxA[0]+boxA[2],boxB[1]+boxB[3]),(0,0,255),2)
+    cv2.rectangle(img,(int(boxA[0]),int(boxA[1])),(int(boxA[0]+boxA[2]),int(boxB[1]+boxB[3])),(255,0,0),2)
+    cv2.rectangle(img,(int(boxB[0]),int(boxA[1])),(int(boxA[0]+boxA[2]),int(boxB[1]+boxB[3])),(0,0,255),2)
     cv2.imwrite(save_folder+"/bbox_{}.png".format(img_index), img)
     
     # return the intersection over union value
