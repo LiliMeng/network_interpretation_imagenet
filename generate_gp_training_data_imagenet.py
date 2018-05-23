@@ -192,7 +192,12 @@ def validate(val_loader, model, criterion, eval_img_index):
             # compute output
             output = model(input_var)
             loss = criterion(output, target_var)
-
+            print("output")
+            print(output)
+            print("target_var")
+            print(target_var)
+            print("loss")
+            print(loss)
 
             pred = output.data.max(1, keepdim=True)[1]
             label = target[0]
@@ -235,14 +240,6 @@ def validate(val_loader, model, criterion, eval_img_index):
                     
                     masked_img = input[0].numpy().copy() * mask
 
-
-                    print("input_var[0].max(): ", input_var[0].max())
-                    print("input_var[0].min(): ", input_var[0].min())
-                    print("input[0].max(): ", input[0].max())
-                    print("input[0].min(): ", input[0].min())
-                    print("masked_img.max(): ", masked_img.max())
-                    print("masked_img.min(): ", masked_img.min())
-                    
                     masked_img_batch = masked_img[None, :, :, :]
 
                 

@@ -109,12 +109,12 @@ def generate_boundingbox(img_index, img, threshold, save_folder):
     cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
     cv2.imwrite(save_folder+"/bbox_{}.png".format(img_index), img)
 
-    return x, y, w, h
+    return [x, y, w, h]
 
 
 
 
-def IOU(boxA, boxB):
+def generate_IOU(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])

@@ -123,7 +123,7 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
     model.eval()
         
     count = 0
-    for i, (input, target) in enumerate(val_loader):
+    for i, (input, target, gt_bboxes) in enumerate(val_loader):
         count += 1
 
         if count > args.eval_img_index:
@@ -131,7 +131,7 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
             
         input_var = torch.autograd.Variable(input.cuda(), requires_grad=True)
         input_var.requires_grad = True
-        target_var = torch.autograd.Variable(target).cuda()
+        target_var = torch.autograd.Variable(target[0]).cuda()
         
         img_show = input[0].numpy().copy()
         img_show = img_show.transpose( 1, 2, 0 )
@@ -157,12 +157,12 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
 
             # compute output
             output = model(input_var)
+
             loss = criterion(output, target_var)
 
             pred = output.data.max(1, keepdim=True)[1]
-            label = target[0]
-            print("label ", label)
-            print("pred[0].cpu().numpy() ", pred[0].cpu().numpy()[0])
+            label = target[0].numpy()[0]
+          
 
             if pred[0].cpu().numpy()[0] == label:
                 print("correct prediction, index_{} , label_{}".format(count, classes_dict[label]))
@@ -184,20 +184,18 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
                 for (j, segVal) in enumerate(random_sampled_list):
                     mask[segments == segVal] = 1
                     
-                
                 masked_img = input[0].numpy().copy() * mask
 
                 masked_img_batch = masked_img[None, :, :, :]
             
                 masked_img_tensor = torch.autograd.Variable(torch.from_numpy(masked_img_batch)).cuda()
                 mask_output = model(masked_img_tensor)
-      
+                
+            
                 pred_mask = mask_output.data.max(1, keepdim=True)[1]
                 total_probability_score = F.softmax(mask_output)
                 
                 class_prob_score = total_probability_score.data.cpu().numpy()[0][label]
-                print("the correct class probability score: ", class_prob_score)
-              
 
                 masked_img_show = masked_img.copy()
                 masked_img_show = masked_img_show.transpose(1, 2, 0)
@@ -206,7 +204,7 @@ def validate_nueral_network(val_loader, model, criterion, bo_iter, firstIndex):
                 masked_img_show *= 255
                 masked_img_show = masked_img_show.astype(np.uint8)
 
-                if pred_mask[0].cpu().numpy()[0] == target[0]:
+                if pred_mask[0].cpu().numpy()[0] == label:
                     correct_pred_count+=1
                     print("correct_pred_count: ", correct_pred_count)
                     cv2.imwrite('./masks/mask_{}_{}.png'.format(bo_iter, 1), mask*255) 
@@ -230,20 +228,21 @@ def superpixel_mask(firstIndex):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(val_data_dir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size = args.batch_size, shuffle=False,
-        num_workers = args.workers, pin_memory=True)
+    val_loader = torch.utils.data.DataLoader(imagenet_localization_dataset(
+                    data_dir=val_data_dir,
+                    crop = -1,
+                    transform = transforms.Compose([
+                    transforms.Resize(224),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    normalize,
+                ])),
+        batch_size = 1, shuffle=False,
+        num_workers = 1, pin_memory=True)
 
     count = 0
 
-    for i, (input, target) in enumerate(val_loader):
+    for i, (input, target, gt_bboxes) in enumerate(val_loader):
         count += 1
 
         if count > args.eval_img_index:
@@ -312,7 +311,7 @@ def load_images_from_folder(folder):
     return img_filenames, labels
 
 
-def plot_summed_heatmap(val_img_index, bbox_threshold):
+def plot_summed_heatmap(val_img_index, bbox_threshold, gt_bbox):
     mask_filenames, train_mask_labels = load_images_from_folder('./masks')
 
     train_x = []
@@ -369,7 +368,10 @@ def plot_summed_heatmap(val_img_index, bbox_threshold):
     plt.savefig('result_imgs/index_{}.png'.format(val_img_index))
     cv2.imwrite("heatmaps/index_{}.png".format(val_img_index), result_heatmap)
     
-    generate_boundingbox(val_img_index, result_heatmap, bbox_threshold, "heatmaps")
+    pred_box = generate_boundingbox(val_img_index, result_heatmap, bbox_threshold, "heatmaps")
+
+    IOU = generate_IOU(pred_box, gt_bbox)
+    print('\033[91m' + "IOU: " + str(IOU) + '\033[0m')
 
 def main():
 
@@ -398,26 +400,27 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-    # val_loader = torch.utils.data.DataLoader(imagenet_localization_dataset(
-    #                 data_dir=val_data_dir,
-    #                 transform = transforms.Compose([
-    #                 transforms.Resize(256),
-    #                 transforms.CenterCrop(224),
-    #                 transforms.ToTensor(),
-    #                 normalize,
-    #             ])),
-    #     batch_size = 1, shuffle=False,
-    #     num_workers = 1, pin_memory=True)
+    val_loader = torch.utils.data.DataLoader(imagenet_localization_dataset(
+                    data_dir=val_data_dir,
+                    crop = -1,
+                    transform = transforms.Compose([
+                    transforms.Resize(224),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    normalize,
+                ])),
+        batch_size = 1, shuffle=False,
+        num_workers = 1, pin_memory=True)
 
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(val_data_dir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+    #val_loader = torch.utils.data.DataLoader(
+    #    datasets.ImageFolder(val_data_dir, transforms.Compose([
+    #        transforms.Resize(256),
+    #        transforms.CenterCrop(224),
+    #        transforms.ToTensor(),
+    #        normalize,
+    #    ])),
+    #    batch_size=args.batch_size, shuffle=False,
+    #    num_workers=args.workers, pin_memory=True)
   
     # # The Oracle
     # param_grid = np.array([C for C in range(44)])
@@ -428,7 +431,7 @@ def main():
     # plt.plot(param_grid, real_loss, 'go--', linewidth=2, markersize=12)
     # plt.show()
     count = 0
-    for i, (input, target) in enumerate(val_loader):
+    for i, (input, target, gt_bboxes) in enumerate(val_loader):
         count += 1
 
         if count > args.eval_img_index:
@@ -450,6 +453,9 @@ def main():
         # cv2.imshow('index_{}_label_{}'.format(i, classes_dict[target[0]]), img_show)
         # # cv2.waitKey(0)
         if count == args.eval_img_index:
+
+            x, y, w, h = gt_bboxes[0]
+
             cv2.imwrite("org_img.png", img_show)
             
             segments = felzenszwalb(img_as_float(img_show), scale=100, sigma=0.5, min_size=50)
@@ -480,7 +486,7 @@ def main():
             time_duration = time.time()-start_time
 
             print("time duration is: ", time_duration) 
-            plot_summed_heatmap(args.eval_img_index)
+            plot_summed_heatmap(args.eval_img_index, gt_bboxes[0])
     
 
 

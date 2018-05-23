@@ -63,7 +63,7 @@ class imagenet_localization_dataset(data.Dataset):
         img = Image.open( self.img_dirs[index] ).convert('RGB')
         bboxes = self.bboxes_list[index]
         label = self.labels[index]
-        print("bboxes in the class: ", bboxes)
+
         if self.crop == -1:
             A = None
             for bbox in bboxes:
@@ -95,11 +95,12 @@ class imagenet_localization_dataset(data.Dataset):
             A = [0, 0, 224, 224]
         if self.transform is not None:
             img = self.transform(img)
-        print("A in the class: ", A)
+       
         return img, torch.from_numpy(np.array([label])), torch.from_numpy(np.array(A))
 
 
 def main():
+    # This part is to test the ground truth bounding boxes for ImageNet localization dataset above
 
     val_data_dir = "/home/lili/Video/GP/examples/network_interpretation_imagenet/data/val"
 
@@ -118,24 +119,13 @@ def main():
         batch_size = 1, shuffle=False,
         num_workers = 1, pin_memory=True)
             
-    # print("val_loader")
-    # print(val_loader)
-
-    # val_loader = torch.utils.data.DataLoader(
-    #     datasets.ImageFolder(val_data_dir, transforms.Compose([
-    #         transforms.Resize(256),
-    #         transforms.CenterCrop(224),
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ])),
-    #     batch_size=1, shuffle=False,
-    #     num_workers=4, pin_memory=True)
+    
 
     count = 0
 
-    eval_img_index = 30
+    eval_img_index = 70
     
-    for i, (input, target, bboxes) in enumerate(val_loader):
+    for i, (input, target, gt_bboxes) in enumerate(val_loader):
 
         count +=1
 
@@ -156,11 +146,13 @@ def main():
 
         label = target[0].numpy()[0]
         
-        x, y, w, h = bboxes[0]
+        x, y, w, h = gt_bboxes[0]
 
         if count == eval_img_index:
+            print("input")
+            print(input)
             final_img = img_show.copy()
-            cv2.rectangle(final_img,(int(x),int(y)),(int(x+w),int(y+h)),(255,0,0),2)
+            cv2.rectangle(final_img,(int(x),int(y)),(int(x+w),int(y+h)),(0,0,255),2)
 
             cv2.imshow("org_img_label_{}.png".format(classes_dict[label]), final_img)
             cv2.waitKey(0)
