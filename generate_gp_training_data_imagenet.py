@@ -215,7 +215,6 @@ def validate(val_loader, model, criterion, eval_img_index):
             if pred[0].cpu().numpy()[0] == label:
                 print("correct prediction, index_{} , label_{}".format(count, classes_dict[label]))
 
-
                 correct_pred_count = 0
                 wrong_pred_count = 0
 

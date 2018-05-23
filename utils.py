@@ -106,15 +106,12 @@ def generate_boundingbox(img_index, img, threshold, save_folder):
             x, y, w, h = x_, y_, w_, h_
             size = w * h
 
-    cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
-    cv2.imwrite(save_folder+"/bbox_{}.png".format(img_index), img)
-
     return [x, y, w, h]
 
 
 
 
-def generate_IOU(boxA, boxB):
+def generate_IOU(boxA, boxB, img=None):
     # determine the (x, y)-coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
@@ -133,6 +130,12 @@ def generate_IOU(boxA, boxB):
     # area and dividing it by the sum of prediction + ground-truth
     # areas - the interesection area
     IOU = interArea / float(boxAArea + boxBArea - interArea)
+
+    if img!=None:
+
+        cv2.rectangle(img,(boxA[0],boxA[1]),(boxA[0]+boxA[2],boxB[1]+boxB[3]),(255,0,0),2)
+        cv2.rectangle(img,(boxB[0],boxA[1]),(boxA[0]+boxA[2],boxB[1]+boxB[3]),(0,0,255),2)
+        cv2.imwrite(save_folder+"/bbox_{}.png".format(img_index), img)
     
     # return the intersection over union value
     return IOU
