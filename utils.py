@@ -93,7 +93,7 @@ def normalize_image(image):
     """Convert pixel intensity values from [0, 255] to [0.0, 1.0]."""
     return np.multiply(image.astype(np.float32), 1.0 / 255.0)
 
-def generate_boundingbox(img_index, img, threshold, save_folder):
+def generate_boundingbox(img_index, img, threshold):
     """Generate a bounding box for the heatmap"""
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     ret,th1 = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
@@ -111,7 +111,7 @@ def generate_boundingbox(img_index, img, threshold, save_folder):
 
 
 
-def generate_IOU(boxA, boxB, img):
+def generate_IOU(boxA, boxB, img, save_folder):
     # determine the (x, y)-coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
@@ -131,7 +131,6 @@ def generate_IOU(boxA, boxB, img):
     # areas - the interesection area
     IOU = interArea / float(boxAArea + boxBArea - interArea)
 
-    
 
     cv2.rectangle(img,(int(boxA[0]),int(boxA[1])),(int(boxA[0]+boxA[2]),int(boxB[1]+boxB[3])),(255,0,0),2)
     cv2.rectangle(img,(int(boxB[0]),int(boxA[1])),(int(boxA[0]+boxA[2]),int(boxB[1]+boxB[3])),(0,0,255),2)
