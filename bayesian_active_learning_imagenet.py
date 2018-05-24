@@ -370,7 +370,7 @@ def plot_summed_heatmap(val_img_index, bbox_threshold, gt_bbox):
     
     pred_box = generate_boundingbox(val_img_index, result_heatmap, bbox_threshold)
 
-    IOU = generate_IOU(pred_box, gt_bbox, org_img, "heatmaps")
+    IOU = generate_IOU(pred_box, gt_bbox, org_img, val_img_index, "heatmaps")
     print('\033[91m' + "IOU: " + str(IOU) + '\033[0m')
 
 def main():
@@ -485,8 +485,8 @@ def main():
             time_duration = time.time()-start_time
 
             print("time duration is: ", time_duration) 
-            bbox_threshold = 160
-            plot_summed_heatmap(args.eval_img_index, bbox_threshold, gt_bboxes[0])
+            bbox_threshold = 180
+            plot_summed_heatmap(args.eval_img_index, bbox_threshold,  gt_bboxes[0])
     
 
 

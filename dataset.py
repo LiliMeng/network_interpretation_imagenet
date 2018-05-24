@@ -68,35 +68,51 @@ class imagenet_localization_dataset(data.Dataset):
             A = None
             for bbox in bboxes:
                 x, y, w, h = bbox
+                #print(bbox)
                 img_w, img_h = img.size
                 if img_w < img_h:
                     r = 224 / img_w
                 else:
                     r = 224 / img_h
                 x, y, w, h = x*r, y*r, w*r, h*r
-                img_w, img_h = img_w*r, img_h*r
-                x -= img_w/2 - 224/2
-                y -= img_h/2 - 224/2
+
+                img_w = img_w*r
+                img_h = img_h*r
+                
                 if A is None:
                     A = [x, y, w, h]
-                else:
-                    A = [min(x, A[0]), min(y, A[1]), max(A[0]+A[2], x+w) - min(x, A[0]), max(A[1]+A[3], y+h) - min(y, A[1])]
-        elif self.crop == 0:
-            x, y, w, h = bboxes[0]
-            img = img.crop((x, y, x+w, y+h))
-            img = img.resize((224, 224), Image.BILINEAR)
-            A = [0, 0, 224, 224]
-        elif self.crop == 1:
-            img = transforms.Resize(256)(img)
-            img = transforms.CenterCrop(224)(img)
-            x, y, w, h = bbox_pred
-            img = img.crop((int(x), int(y), int(x+w), int(y+h)))
-            img = img.resize((224, 224), Image.BILINEAR)
-            A = [0, 0, 224, 224]
+
+                B = [0, 0, 224, 224]
+
+                A = bbox_intersection(A, B)
+
+                normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
+                transform = transforms.Compose([
+                            transforms.Resize((int(img_h), int(img_w))),
+                            transforms.CenterCrop(224),
+                            transforms.ToTensor(),
+                            normalize,
+                            ])
+                self.transform = transform
+                break
+
         if self.transform is not None:
             img = self.transform(img)
+            print("img.size")
+            print(img)
        
         return img, torch.from_numpy(np.array([label])), torch.from_numpy(np.array(A))
+
+
+def bbox_intersection(a,b):
+    x = max(a[0], b[0])
+    y = max(a[1], b[1])
+    w = min(a[0]+a[2], b[0]+b[2]) - x
+    h = min(a[1]+a[3], b[1]+b[3]) - y
+    if w<0 or h<0: return [0,0,0,0] 
+    return [x, y, w, h]
 
 
 def main():
@@ -106,16 +122,18 @@ def main():
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
+    
+    transform = transforms.Compose([
+                    #transforms.Resize((A[3], A[2])),
+                   # transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    normalize,
+                ])
 
     val_loader = torch.utils.data.DataLoader(imagenet_localization_dataset(
                     data_dir=val_data_dir,
                     crop = -1,
-                    transform = transforms.Compose([
-                    transforms.Resize(224),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    normalize,
-                ])),
+                    transform=transform),
         batch_size = 1, shuffle=False,
         num_workers = 1, pin_memory=True)
             
@@ -123,7 +141,7 @@ def main():
 
     count = 0
 
-    eval_img_index = 70
+    eval_img_index = 4
     
     for i, (input, target, gt_bboxes) in enumerate(val_loader):
 
@@ -152,6 +170,8 @@ def main():
             print("input")
             print(input)
             final_img = img_show.copy()
+            print("gt_bbox")
+            print(gt_bboxes[0])
             cv2.rectangle(final_img,(int(x),int(y)),(int(x+w),int(y+h)),(0,0,255),2)
 
             cv2.imshow("org_img_label_{}.png".format(classes_dict[label]), final_img)
