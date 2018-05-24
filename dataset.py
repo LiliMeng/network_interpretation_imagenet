@@ -68,7 +68,7 @@ class imagenet_localization_dataset(data.Dataset):
             A = None
             for bbox in bboxes:
                 x, y, w, h = bbox
-                #print(bbox)
+                
                 img_w, img_h = img.size
                 if img_w < img_h:
                     r = 224 / img_w
@@ -100,8 +100,6 @@ class imagenet_localization_dataset(data.Dataset):
 
         if self.transform is not None:
             img = self.transform(img)
-            print("img.size")
-            print(img)
        
         return img, torch.from_numpy(np.array([label])), torch.from_numpy(np.array(A))
 
@@ -124,8 +122,8 @@ def main():
                                      std=[0.229, 0.224, 0.225])
     
     transform = transforms.Compose([
-                    #transforms.Resize((A[3], A[2])),
-                   # transforms.CenterCrop(224),
+                    transforms.Resize(224),
+                    transforms.CenterCrop(224),
                     transforms.ToTensor(),
                     normalize,
                 ])
