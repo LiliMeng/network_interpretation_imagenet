@@ -368,7 +368,7 @@ def plot_summed_heatmap(val_img_index, bbox_threshold, gt_bbox):
     plt.savefig('result_imgs/index_{}.png'.format(val_img_index))
     cv2.imwrite("heatmaps/index_{}.png".format(val_img_index), result_heatmap)
     
-    pred_box = generate_boundingbox(val_img_index, result_heatmap, bbox_threshold)
+    pred_box = generate_boundingbox(val_img_index, result_gray_img_show, bbox_threshold)
 
     IOU = generate_IOU(pred_box, gt_bbox, org_img, val_img_index, "heatmaps")
     print('\033[91m' + "IOU: " + str(IOU) + '\033[0m')

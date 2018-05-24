@@ -93,9 +93,9 @@ def normalize_image(image):
     """Convert pixel intensity values from [0, 255] to [0.0, 1.0]."""
     return np.multiply(image.astype(np.float32), 1.0 / 255.0)
 
-def generate_boundingbox(img_index, img, threshold):
+def generate_boundingbox(img_index, gray, threshold):
     """Generate a bounding box for the heatmap"""
-    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    cv2.imwrite("heatmaps/gray_img.png", gray)
     ret,th1 = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
     _, contours, hierarchy = cv2.findContours(th1, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     size = 0
