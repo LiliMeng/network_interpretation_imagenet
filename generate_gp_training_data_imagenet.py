@@ -75,7 +75,7 @@ parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='gloo', type=str,
                     help='distributed backend')
-parser.add_argument('--eval_img_index', default=400, type=int,
+parser.add_argument('--eval_img_index', default=20, type=int,
                     help='the index of evaluation image')
 parser.add_argument('--num_mask_samples', default=100, type=int,
                     help='the number of mask samples')
@@ -601,9 +601,9 @@ def main():
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
-    eval_img_index = 300
+    
 
-    summed_superpixel_labels, summed_superpixel_labels_heatmap = validate(val_loader, model, criterion, eval_img_index)
+    summed_superpixel_labels, summed_superpixel_labels_heatmap = validate(val_loader, model, criterion, args.eval_img_index)
 
 
   

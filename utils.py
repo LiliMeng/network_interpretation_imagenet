@@ -95,7 +95,7 @@ def normalize_image(image):
 
 def generate_boundingbox(img_index, gray, threshold):
     """Generate a bounding box for the heatmap"""
-    cv2.imwrite("heatmaps/gray_img.png", gray)
+    cv2.imwrite("heatmaps/gray_img_{}.png".format(img_index), gray)
     ret,th1 = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
     _, contours, hierarchy = cv2.findContours(th1, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     size = 0
