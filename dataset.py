@@ -110,7 +110,7 @@ def bbox_intersection(a,b):
     w = min(a[0]+a[2], b[0]+b[2]) - x
     h = min(a[1]+a[3], b[1]+b[3]) - y
     if w<0 or h<0: return [0,0,0,0] 
-    return [x, y, w, h]
+    return [x, y, x+w, y+h]
 
 
 def main():
