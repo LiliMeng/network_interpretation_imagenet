@@ -82,9 +82,16 @@ class imagenet_localization_dataset(data.Dataset):
                 if A is None:
                     A = [x, y, w, h]
 
-                B = [0, 0, 224, 224]
+                B = [(img_w-224)/2, (img_h-224)/2, 224, 224]
 
-                A = bbox_intersection(A, B)
+                new_x, new_y, new_w, new_h = bbox_intersection(A, B)
+
+                new_x = new_x - B[0]
+
+                new_y = new_y - B[1]
+
+                A = [new_x, new_y, new_w, new_h]
+                
 
                 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
@@ -110,7 +117,7 @@ def bbox_intersection(a,b):
     w = min(a[0]+a[2], b[0]+b[2]) - x
     h = min(a[1]+a[3], b[1]+b[3]) - y
     if w<0 or h<0: return [0,0,0,0] 
-    return [x, y, x+w, y+h]
+    return [x, y, w, h]
 
 
 def main():
@@ -139,7 +146,7 @@ def main():
 
     count = 0
 
-    eval_img_index = 4
+    eval_img_index = 100
     
     for i, (input, target, gt_bboxes) in enumerate(val_loader):
 

@@ -280,8 +280,6 @@ def sample_loss(params, val_loader, model, criterion):
         The loss for each sample in objective function. 
         softmax probability with a regularizer to constrain the superpixel size 
     """
-    print("params")
-    print(params)
     firstIndex = int(params[0])
 
     bo_iter = params[0]
