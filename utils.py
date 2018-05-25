@@ -106,7 +106,7 @@ def generate_boundingbox(img_index, gray, threshold):
             x, y, w, h = x_, y_, w_, h_
             size = w * h
 
-    return [x, y, x+w, y+h]
+    return [x, y, x, y]
 
 
 

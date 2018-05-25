@@ -368,6 +368,11 @@ def plot_summed_heatmap(val_img_index, bbox_threshold, gt_bbox):
     
     pred_box = generate_boundingbox(val_img_index, result_gray_img_show, bbox_threshold)
 
+    pred_box[2] += pred_box[0]
+    pred_box[3] += pred_box[1]
+
+    gt_bbox[2] += gt_bbox[0]
+    gt_bbox[3] += gt_bbox[1]
     IOU = generate_IOU(pred_box, gt_bbox, org_img, val_img_index, "heatmaps")
     print('\033[91m' + "IOU: " + str(IOU) + '\033[0m')
 
